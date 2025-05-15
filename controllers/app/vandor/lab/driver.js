@@ -2,6 +2,8 @@ const Driver = require("../../../../modal/driver");
 const bcrypt = require("bcryptjs");
 const Vendor = require("../../../../modal/vandor");
 const Appointment = require("../../../../modal/Appointment");
+const Order = require("../../../../modal/foodOrder");
+
 
 // Register driver by vandor
 // Method:Post
@@ -130,33 +132,33 @@ const getDriver = async (req, res) => {
 // Get Only Online Drivers
 // Method: GET
 // Endpoint: /driver/online
-const getOnlineDrivers = async (req, res) => {
-  try {
-    const onlineDrivers = await Driver.find({
-      vendorId: req.user._id,
-      isOnline: true, // ✅ filter only online drivers
-    });
+// const getOnlineDrivers = async (req, res) => {
+//   try {
+//     const onlineDrivers = await Driver.find({
+//       vendorId: req.user._id,
+//       isOnline: true, // ✅ filter only online drivers
+//     });
 
-    if (!onlineDrivers || onlineDrivers.length === 0) {
-      return res.send({
-        success: 0,
-        message: "No online driver found",
-        details: [], 
-      });
-    }
+//     if (!onlineDrivers || onlineDrivers.length === 0) {
+//       return res.send({
+//         success: 0,
+//         message: "No online driver found",
+//         details: [], 
+//       });
+//     }
 
-    return res.send({
-      success: 1,
-      message: "Online drivers fetched successfully",
-      details: onlineDrivers,
-    });
-  } catch (error) {
-    return res.send({
-      success: 0,
-      message: error.message,
-    });
-  }
-};
+//     return res.send({
+//       success: 1,
+//       message: "Online drivers fetched successfully",
+//       details: onlineDrivers,
+//     });
+//   } catch (error) {
+//     return res.send({
+//       success: 0,
+//       message: error.message,
+//     });
+//   }
+// };
 
 
 
@@ -268,11 +270,109 @@ const deleteDriver = async (req, res) => {
 };
 
 
+
+// Get orders assigned to driver
+// Method: GET
+// Endpoint: /driver/assigned-orders
+const getAssignedOrders = async (req, res) => {
+  try {
+    // Verify driver exists and is authenticated
+    const driver = await Driver.findById(req.user._id);
+    if (!driver) {
+      return res.send({
+        success: 0,
+        message: "Driver not authenticated",
+      });
+    }
+
+    // Find all orders assigned to this driver with status "1" (accepted)
+    const orders = await Order.find({
+      driverId: req.user._id,
+      status: "1" // Only show accepted orders
+    })
+      .populate("userId", "name phoneNumber") // Show basic user info
+      .populate("vendorId", "name") // Show vendor name
+      .populate("items.FoodItem", "name price") // Show food item details
+      .sort({ createdAt: -1 }); // Newest first
+
+    if (orders.length === 0) {
+      return res.send({
+        success: 1,
+        message: "No orders assigned to you currently",
+        details: []
+      });
+    }
+
+    return res.send({
+      success: 1,
+      message: "Assigned orders fetched successfully",
+      details: orders
+    });
+
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+// Update order status (for driver to mark as delivered)
+// Method: PATCH
+// Endpoint: /driver/update-order-status/:orderId
+const updateOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body; // "2" for delivered/completed
+
+    // Verify driver exists
+    const driver = await Driver.findById(req.user._id);
+    if (!driver) {
+      return res.send({
+        success: 0,
+        message: "Driver not authenticated",
+      });
+    }
+
+    // Find the order assigned to this driver
+    const order = await Order.findOne({
+      _id: orderId,
+      driverId: req.user._id
+    });
+
+    if (!order) {
+      return res.send({
+        success: 0,
+        message: "Order not found or not assigned to you",
+      });
+    }
+
+    // Update status
+    order.status = status;
+    await order.save();
+
+    return res.send({
+      success: 1,
+      message: "Order status updated successfully",
+      details: order
+    });
+
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+
 module.exports = {
   createDriver,
   getDriver,
   updateDriver,
   deleteDriver,
-  getOnlineDrivers,
-  // updatedriverStatus,
+  // getOnlineDrivers,
+  
+  getAssignedOrders,
+  updateOrderStatus,
 };

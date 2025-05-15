@@ -2,11 +2,21 @@ const { Schema, model } = require("mongoose");
 
 const servicesSchema = Schema(
   {
+    // onstatus only 3
+    // 0 = on hold
+    // 1 = approved
+    // 2 = rejected
+    onStatus: {
+      type: String,
+      default: "0",
+    },
+
     categoryName: {
       type: String,
-      enum: ["Allopathy", "Ayurvedic", "Prescription"],
+      // enum: ["Allopathy", "Ayurvedic", "Prescription"],
       default: "",
     },
+   
     name: {
       type: String,
       default: "",

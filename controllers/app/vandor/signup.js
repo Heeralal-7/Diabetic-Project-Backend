@@ -193,6 +193,9 @@ const register = async (req, res) => {
       altrphone,
       ctrcode,
       email,
+      latitude,
+      longitude,
+    
     } = req.body;
  
 
@@ -247,6 +250,9 @@ const register = async (req, res) => {
       image,
       password: hashPass,
       verify: true,
+      latitude,
+      longitude,
+
     });
 
     const newdoc = await Document.create({

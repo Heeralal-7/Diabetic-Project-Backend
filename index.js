@@ -7,9 +7,9 @@ const { db } = require("./db/dataBase");
 const bodyParser = require("body-parser");
 
 const app = express();
-const port = process.env.PORT || 8080;
+const port = process.env.PORT || 8081;
 const totalCpus = os.cpus().length
-
+ 
 
 if(cluster.isPrimary){
   for(let i=0; i<totalCpus; i++){

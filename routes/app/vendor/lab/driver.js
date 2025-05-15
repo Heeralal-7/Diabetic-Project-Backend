@@ -6,8 +6,9 @@ const {
   getDriver,
   updateDriver,
   deleteDriver,
-  getOnlineDrivers,
+  // getOnlineDrivers,
   updatedriverStatus,
+  
 } = require("../../../../controllers/app/vandor/lab/driver");
 
 const route = Router();
@@ -79,8 +80,10 @@ route.patch(
 );
 
 route.get("/get-driver", VendorMiddleware, getDriver);
-route.get("/online", VendorMiddleware, getOnlineDrivers);
+// route.get("/online", VendorMiddleware, getOnlineDrivers);
 route.delete("/delete-driver/:id", VendorMiddleware, deleteDriver);
+// route.get("/driver/assigned-orders", VendorMiddleware, getAssignedOrders);
+// route.patch("/driver/update-order-status/:orderId", VendorMiddleware, updateOrderStatus);
 // route.patch('/update' , updatedriverStatus)
 
 module.exports = route;

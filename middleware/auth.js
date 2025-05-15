@@ -71,7 +71,7 @@ const adminMiddleware = generateMiddleware(Admin);
 const doctorMiddleware = generateMiddleware(Doctor);
 const VendorMiddleware = generateMiddleware1(Vendor);
 const driverMiddleware = generateMiddleware(Driver);
-
+ 
 module.exports = {
   middlewere,
   adminMiddleware,

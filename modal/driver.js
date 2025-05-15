@@ -99,6 +99,10 @@ const driverSchema = Schema(
       type: Boolean,
       default: false,
     },
+    isBusy: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

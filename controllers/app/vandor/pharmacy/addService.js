@@ -73,16 +73,16 @@ const addService = async (req, res) => {
     }
 
     // ✅ Validate files (if photos are required)
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        success: 0,
-        message: "At least one photo is required.",
-      });
-    }
+    // if (!req.files || req.files.length === 0) {
+    //   return res.status(400).json({
+    //     success: 0,
+    //     message: "At least one photo is required.",
+    //   });
+    // } 
 
     const photoPaths = req.files.map((file) => `/vendor/photo/${file.filename}`);
 
-    // ✅ Ensure req.user exists (token middleware must set it)
+     
     if (!req.user || !req.user._id) {
       return res.status(401).json({
         success: 0,
@@ -173,38 +173,61 @@ const getServices = async (req, res) => {
   try {
     const { categoryName, status, page = 1, limit = 10 } = req.query;
 
-    if (!categoryName) {
-      return res.send({
+    const allowedCategories = ["Allopathy", "Ayurvedic", "Prescription"];
+    if (!categoryName || !allowedCategories.includes(categoryName)) {
+      return res.status(400).json({
         success: 0,
-        message: "categoryName is required",
+        message: "Invalid or missing categoryName. Allowed values: Allopathy, Ayurvedic, Prescription.",
+      });
+    }
+
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: 0,
+        message: "Unauthorized: Vendor token missing or invalid.",
       });
     }
 
     const skip = (page - 1) * limit;
 
-    const data = await Service.find({ categoryName, status })
-      .skip(skip)
+    const query = {
+      categoryName,
+      vendorId: req.user._id,
+    };
+
+    if (status !== undefined) {
+      query.status = parseInt(status);
+    }
+
+    const data = await Service.find(query)
+      .sort({ onStatus: 1, createdAt: -1 }) // sort by onStatus first
+      .skip(parseInt(skip))
       .limit(parseInt(limit));
 
     if (!data || data.length === 0) {
-      return res.send({
+      return res.status(200).json({
         success: 0,
-        message: "No records found",
+        message: "No records found.",
       });
     }
 
-    return res.send({
+    return res.status(200).json({
       success: 1,
       message: "Fetched successfully",
       details: data,
     });
+
   } catch (error) {
-    return res.send({
+    console.error("Get Services Error:", error);
+    return res.status(500).json({
       success: 0,
-      message: error.message,
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
+
+
 
 //Search service
 //Method:Get

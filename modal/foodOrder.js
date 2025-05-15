@@ -95,6 +95,10 @@ const foodOrderSchema = new Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Driver",
     },
+    rejectionReason: {
+      type: String,
+      default: null,
+    }
 
   },
   { timestamps: true }

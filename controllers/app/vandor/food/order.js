@@ -1,5 +1,7 @@
 const Order = require("../../../../modal/foodOrder");
 const FoodOrder = require("../../../../modal/foodOrder");
+const Driver = require("../../../../modal/driver");
+
 //Get ordered food
 //Method:Get
 //Endpoint: /vendor-order/order?orderType
@@ -8,22 +10,24 @@ const getFoodOrder = async (req, res) => {
   try {
     const { orderType } = req.query;
 
-    // Filter to show only single-item orders where status is "0" and vendorId matches
     const filter = { 
       vendorId: req.user._id, 
       status: "0", 
-      "items": { $size: 1 }  // Ensures the order has exactly one item
+      items: { $size: 1 }
     };
 
     if (orderType) {
       filter.orderType = orderType;
     }
 
-    const totalOrders = await FoodOrder.countDocuments(filter);
-
-    const data = await FoodOrder.find(filter)
+    let data = await FoodOrder.find(filter)
       .populate("userId")
-      .populate("items.FoodItem"); // Populating food details
+      .populate("items.FoodItem");
+
+    // Filter out orders with quantity > 1
+    data = data.filter(order => order.items[0].quantity === 1);
+
+    const totalOrders = data.length;
 
     return res.send({
       success: 1,
@@ -153,7 +157,9 @@ const orderHistory = async (req, res) => {
   }
 };
 
-// /vendor-order/accepted-orders
+//Get accepted orders
+// Method: GET
+// Endpoint: /vendor-order/accepted-orders
 const getAcceptedOrders = async (req, res) => {
   try {
     const vendorId = req.user._id;
@@ -222,7 +228,12 @@ const assignDriverToOrder = async (req, res) => {
 
     // Assign driver to order
     order.driverId = driverId;
+    order.status = "2"; // assigned to driver 
     await order.save();
+
+    // Mark driver as busy
+    driver.isBusy = true;
+    await driver.save();
 
     return res.send({
       success: 1,
@@ -271,4 +282,44 @@ const getOrderWithDriver = async (req, res) => {
 };
 
 
-module.exports = { getFoodOrder, changeOrderStatus, getOrder,orderHistory, getAcceptedOrders,assignDriverToOrder,getOrderWithDriver };
+// Get online drivers
+// Method: GET
+// Endpoint: /vendor-order/online-drivers
+const getOnlineDrivers = async (req, res) => {
+  try {
+    const onlineDrivers = await Driver.find({
+      vendorId: req.user._id,
+      isOnline: true, // ✅ only online drivers
+    });
+
+    if (!onlineDrivers || onlineDrivers.length === 0) {
+      return res.send({
+        success: 0,
+        message: "No online driver found",
+        details: [],
+      });
+    }
+
+    // Add status: "Available" or "Busy"
+    const modifiedDrivers = onlineDrivers.map(driver => ({
+      ...driver.toObject(),
+      status: driver.isBusy ? "Busy" : "Available",
+    }));
+
+    return res.send({
+      success: 1,
+      message: "Online drivers fetched successfully",
+      details: modifiedDrivers,
+    });
+
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+
+
+module.exports = { getFoodOrder, changeOrderStatus, getOrder,orderHistory, getAcceptedOrders,assignDriverToOrder,getOrderWithDriver,getOnlineDrivers };
