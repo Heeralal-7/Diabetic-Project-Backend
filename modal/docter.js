@@ -1,5 +1,5 @@
 // const { type } = require("@testing-library/user-event/dist/type");
-const { Schema, model, SchemaType } = require("mongoose");
+const { Schema, model } = require("mongoose");
 
 const doctorSchema = new Schema(
   {
@@ -49,21 +49,19 @@ const doctorSchema = new Schema(
     },
     phnOtp: {
       type: String,
-      default: "234567",
+      default: "",
     },
     qualification: {
-      type: Schema.Types.ObjectId,
-    ref:"Qualification",
-      default: null,
+      type: String,
+      default: "",
     },
     altphnctrcode: {
       type: String,
       default: "",
     },
     specialist: {
-      type: Schema.Types.ObjectId,
-      ref:"Specialists",
-      default: null,
+      type: String,
+      default: "",
     },
     experience: {
       type: String,
@@ -73,13 +71,6 @@ const doctorSchema = new Schema(
       type: String,
       default: "",
     },
-   patientstreated:{
-    type:Number,
-    default:""
-   },
-   Award:{
-    type:String
-   },
     councilNumber: {
       type: String,
       default: "",
@@ -88,39 +79,54 @@ const doctorSchema = new Schema(
       type: String,
       default: "",
     },
-    // certificateImage: {
-    //   type: String,
-    //   default: "",
-    // },
-    // licenceCertificate: {
-    //   type: String,
-    //   default: "",
-    // },
+    certificateImage: {
+      type: String,
+      default: "",
+    },
+    CertificateStatus: {
+      type: String,
+      default: "0",
+    },
+    licenceCertificate: {
+      type: String,
+      default: "",
+    },
+    licenceCertificateStatus: {
+      type: String,
+      default: "0",
+    },
     password: {
       type: String,
-      default: "", 
+      default: "",
     },
     myDocumentId: {
       type: Schema.Types.ObjectId,
       ref: "Document",
-     },
+      default: null,
+    },
     amount: {
-      type: String
+      type: String,
+      default: "0",
     },
     token: {
       type: String,
       default: "",
     },
-    About:{
-      type:String
-    },
-    Verified:{
+    Accountverify:{
       type:String,
-      default:"false"
-    }
-    
+      default:"0"
+    },
+    ConsultationFeesId: {
+      type: Schema.Types.ObjectId,
+      ref: "ConsultationFees",
+      default: null,
+    },
+    rejectReason: {
+      type: String,
+      default: "",
+    },
+ 
   },
   { timestamps: true }
 );
 module.exports = model("Doctor", doctorSchema);
- 

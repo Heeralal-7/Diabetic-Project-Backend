@@ -85,6 +85,7 @@ const getAllDoctor = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const doctorsWithRatings = await Doctor.aggregate([
+      // Join ratings
       {
         $lookup: {
           from: "ratings",
@@ -123,10 +124,22 @@ const getAllDoctor = async (req, res) => {
           },
         },
       },
+
+      // Join consultationfees
+      {
+        $lookup: {
+          from: "consultationfees",
+          localField: "_id",
+          foreignField: "doctorId",
+          as: "consultationFees",
+        },
+      },
       {
         $project: {
           ratings: 0,
-          phnOtp: 0, // exclude the phnOtp field
+          phnOtp: 0,
+          ratingSum: 0,
+          ratingCount: 0,
         },
       },
       { $skip: skip },
@@ -152,6 +165,7 @@ const getAllDoctor = async (req, res) => {
     });
   }
 };
+
 
 // Get single Doctor by their id
 // Method:Get

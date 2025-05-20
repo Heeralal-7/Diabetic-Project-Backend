@@ -13,10 +13,13 @@ const {
   arrivedOrder,
   markAsDelivered,
   rejectOrder,
-  orderHistory
+  orderHistory,
+  getAllActiveOrders,
+  driverAssignReject
   
 } = require("../../../controllers/app/driver/login");
 const { driverMiddleware } = require("../../../middleware/auth");
+const { middlewere } = require('../../../middleware/auth')
 
 const router = Router();
 
@@ -35,5 +38,6 @@ router.patch("/arrived-order/:orderId", driverMiddleware, arrivedOrder);
 router.patch("/order-delivered/:orderId", driverMiddleware, markAsDelivered);
 router.patch("/reject-order/:orderId", driverMiddleware, rejectOrder);
 router.get("/order-history", driverMiddleware, orderHistory);
-
+router.get("/getAllActiveOrders",middlewere,getAllActiveOrders);
+router.patch("/driver-assign-reject/:orderId", driverMiddleware, driverAssignReject);
 module.exports = router;

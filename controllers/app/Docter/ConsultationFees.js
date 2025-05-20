@@ -3,19 +3,32 @@ const Doctor = require("../../../modal/docter");
 
 // Create fees
 // Method:Post
-// EndPoint: /fees/update
+// EndPoint: /fees/create
 const createFees = async (req, res) => {
   try {
     const { onlineFees, offlineFees } = req.body;
-    const docter = await Doctor.findById({ _id: req.user._id });
-    if (!docter) {
+
+    // Check if doctor exists
+    const doctor = await Doctor.findById(req.user._id);
+    if (!doctor) {
       return res.send({
         success: 0,
         message: "Doctor is not authenticated",
       });
     }
 
-    const fees = await ConsultationFees.create({
+    // Check if fees already exist for the doctor
+    const existingFees = await ConsultationFees.findOne({ doctorId: req.user._id });
+
+    if (existingFees) {
+      return res.send({
+        success: 0,
+        message: "You have already created charges. Please delete the existing one to create new.",
+      });
+    }
+
+    // Create new fees
+    await ConsultationFees.create({
       onlineFees,
       offlineFees,
       doctorId: req.user._id,
@@ -23,8 +36,9 @@ const createFees = async (req, res) => {
 
     return res.send({
       success: 1,
-      message: "Created successfully",
+      message: "Fees created successfully",
     });
+
   } catch (error) {
     return res.send({
       success: 0,
@@ -33,6 +47,7 @@ const createFees = async (req, res) => {
   }
 };
 
+  
 // Get fees
 // Method:Get
 // EndPoint: /fees/get
@@ -67,7 +82,7 @@ const getFees = async (req, res) => {
 const updateFees = async (req, res) => {
   try {
     const { id } = req.params;
-    const { onlineFees, offlineFees, status } = req.body;
+    const { onlineFees, offlineFees,  } = req.body;
 
     // Check if the doctor is authenticated
     const doctor = await Doctor.findById(req.user._id);
@@ -80,10 +95,6 @@ const updateFees = async (req, res) => {
 
     // Create an update object with the fields that need to be updated
     const updateFields = {};
-
-    if (status) {
-      updateFields.status = status;
-    }
 
     if (onlineFees) {
       updateFields.onlineFees = onlineFees;
@@ -109,7 +120,7 @@ const updateFees = async (req, res) => {
 };
 
 // Delete fees
-// Method:Post
+// Method:delete
 // EndPoint: /fees/delete
 const deleteFees = async (req, res) => {
   try {

@@ -4,15 +4,20 @@ const Wallet = require("../../../../modal/wallet");
 const AddMember = require("../../../../modal/AddMembers");
 
 const formatTime = (time) => {
+  // If already includes AM or PM, return as-is
+  if (time.toLowerCase().includes("am") || time.toLowerCase().includes("pm")) {
+    return time.toUpperCase(); // Normalize casing
+  }
+
   let [hours, minutes] = time.split(":");
   const ampm = hours >= 12 ? "PM" : "AM";
   hours = hours % 12 || 12;
-  return `${hours}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+  return `${hours}:${minutes.padStart(2, "0")} ${ampm}`;
 };
 
 // Create user appointments
 // Method:Post
-// EndPoits:/add-appointment
+// EndPoits:/user-appointment/appointment
 // type 0 for digital and 1 for walkin
 // day  may be Morning | Afternoon | Evening 
 const appointment = async (req, res) => {
@@ -24,33 +29,34 @@ const appointment = async (req, res) => {
       date,
       price,
       startime,
-      endtime,
-      problem,
       type,
       day,
       patientId,
+      couponId,
+      problemDescription, // <- new
+      age,                // <- new
     } = req.body;
 
     const requiredFields = {
       serviceType: "Service type is required",
       price: "Price is required",
       startime: "Start time is required",
-      endtime: "End time is required",
-      problem: "Problem description is required",
       day: "Day is required",
       type: "Type is required",
       patientId: "Patient ID is required",
+      problemDescription: "Problem description is required",
+      age: "Age is required", // <- age validation
     };
 
     const fieldsToCheck = [
       { field: serviceType, errorMessage: requiredFields.serviceType },
       { field: price, errorMessage: requiredFields.price },
       { field: startime, errorMessage: requiredFields.startime },
-      { field: endtime, errorMessage: requiredFields.endtime },
-      { field: problem, errorMessage: requiredFields.problem },
       { field: day, errorMessage: requiredFields.day },
       { field: type, errorMessage: requiredFields.type },
       { field: patientId, errorMessage: requiredFields.patientId },
+      { field: problemDescription, errorMessage: requiredFields.problemDescription },
+      { field: age, errorMessage: requiredFields.age }, // <- check age
     ];
 
     const missingFields = fieldsToCheck.filter((field) => !field.field);
@@ -65,10 +71,9 @@ const appointment = async (req, res) => {
     }
 
     const formattedStartime = formatTime(startime);
-    const formattedEndtime = formatTime(endtime);
-    const formattedTimeSlot = `${formattedStartime} - ${formattedEndtime}`;
+    const formattedTimeSlot = `${formattedStartime}`;
 
-    // Checking you have booked your appointment or not
+    // Check for duplicate booking
     const isExist = await BookedSlot.findOne({
       $or: [
         {
@@ -97,46 +102,52 @@ const appointment = async (req, res) => {
       });
     }
 
+    // Appointment data
     let valueData = {
       userId: req.user._id,
       serviceType,
       date,
       price,
       timeSlot: formattedTimeSlot,
-      doctorId,
-      vendorId,
-      problem,
       type,
       day,
       patientId,
+      problemDescription,
+      age, // <- added
     };
-    if (doctorId) {
-      valueData.doctorId = doctorId;
-    }
 
-    if (vendorId) {
-      valueData.vendorId = vendorId;
-    }
+    if (doctorId) valueData.doctorId = doctorId;
+    if (vendorId) valueData.vendorId = vendorId;
+    if (couponId && couponId !== "") valueData.couponId = couponId;
 
     const newappointment = await Appointment.create(valueData);
 
-    await BookedSlot.create({
+    // Booked slot data
+    const bookedSlotData = {
       startTime: startime,
       startDate: date,
       userId: req.user._id,
-      doctorId,
-      vendorId,
       day,
       price,
       patientId,
-    });
+    };
 
-    await Wallet.create({
+    if (doctorId) bookedSlotData.doctorId = doctorId;
+    if (vendorId) bookedSlotData.vendorId = vendorId;
+    if (couponId && couponId !== "") bookedSlotData.couponId = couponId;
+
+    await BookedSlot.create(bookedSlotData);
+
+    // Wallet data
+    const walletData = {
       credit: price,
       userId: req.user._id,
-      doctorId,
-      vendorId,
-    });
+    };
+
+    if (doctorId) walletData.doctorId = doctorId;
+    if (vendorId) walletData.vendorId = vendorId;
+
+    await Wallet.create(walletData);
 
     return res.send({
       message: "Appointment created successfully",
@@ -149,5 +160,8 @@ const appointment = async (req, res) => {
     });
   }
 };
+
+
+
 
 module.exports = { appointment };

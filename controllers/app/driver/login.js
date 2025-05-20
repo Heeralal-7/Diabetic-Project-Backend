@@ -367,6 +367,31 @@ const getAssignedOrders = async (req, res) => {
 };
 
 
+//    /driver/getAllActiveOrders
+const getAllActiveOrders = async (req, res) => {
+  try {
+    // Get all food orders with status from 2 to 6
+    const orders = await Order.find({
+      status: { $gte: 2, $lte: 6 },
+    })
+      .populate("userId")     // Full customer info
+      .populate("driverId");  // Full driver info
+
+    return res.status(200).send({
+      success: 1,
+      message: "Active orders fetched successfully",
+      data: orders,
+    });
+
+  } catch (error) {
+    return res.status(500).send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+
 // Update order status (for driver to mark as picked or delivered)
 // Method: PATCH
 // Endpoint: /driver/start-order/:orderId
@@ -534,6 +559,41 @@ const orderHistory = async (req, res) => {
 };
 
 
+// Method: PATCH
+// Endpoint: /driver/driver-assign-reject/:orderId
+const driverAssignReject = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+ 
+    // ड्राइवर authentication
+    const driver = await Driver.findById(req.user._id);
+    if (!driver) {
+      return res.send({ success: 0, message: "Driver not authenticated" });
+    }
+ 
+    // Verify order belongs to this driver and is in assigned state
+    const order = await Order.findOne({ _id: orderId, driverId: req.user._id });
+    if (!order) {
+      return res.send({ success: 0, message: "Order not found or not assigned to you" });
+    }
+ 
+    // Set status = 2 (rejected)
+    order.status = "1"; // Rejected
+    await order.save();
+ 
+    return res.send({
+      success: 1,
+      message: "Order rejected successfully",
+      details: order,
+    });
+ 
+  } catch (error) {
+    return res.send({ success: 0, message: error.message });
+  }
+};
+ 
+ 
+
 
 // Update order status (for driver to mark as delivered)
 // Method: PATCH
@@ -614,5 +674,8 @@ module.exports = {
   arrivedOrder,
   markAsDelivered,
   rejectOrder,
-  orderHistory
+  orderHistory,
+  getAllActiveOrders,
+  driverAssignReject
+
 };

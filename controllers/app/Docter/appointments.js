@@ -3,7 +3,7 @@ const Appointment = require("../../../modal/Appointment");
 const Prescribe = require("../../../modal/Prescribe");
 const Availablity = require("../../../modal/availability");
 const BookedSlot = require("../../../modal/BookedSlot");
-
+const patient = require("../../../modal/addpatientdetails")
 const formatTime = (time) => {
   let [hours, minutes] = time.split(":");
   const ampm = hours >= 12 ? "PM" : "AM";
@@ -13,7 +13,7 @@ const formatTime = (time) => {
 
 // Get All apointments
 // Method: Get
-// EndPoint:/
+// EndPoint:/appointments/
 // query : type 0 for digital and 1 for walkin
 // status : 0 for pending 1 for accepted 2 for rejected 3 for done
 const getAllDoctorAppointments = async (req, res) => {
@@ -23,11 +23,17 @@ const getAllDoctorAppointments = async (req, res) => {
     const pageNumber = +page;
     const skip = (pageNumber - 1) * limit;
 
+    const matchStage = {
+      _id: req.user._id,
+    };
+
+    const appointmentMatch = {};
+    if (status) appointmentMatch["appointments.status"] = status;
+    if (type) appointmentMatch["appointments.type"] = type;
+
     const pipeline = [
       {
-        $match: {
-          _id: req.user._id,
-        },
+        $match: matchStage,
       },
       {
         $lookup: {
@@ -40,24 +46,9 @@ const getAllDoctorAppointments = async (req, res) => {
       {
         $unwind: "$appointments",
       },
-    ];
-
-    if (type) {
-      pipeline.push({
-        $match: {
-          "appointments.type": type,
-          "appointments.status": status,
-        },
-      });
-    } else {
-      pipeline.push({
-        $match: {
-          "appointments.status": status,
-        },
-      });
-    }
-
-    pipeline.push(
+      {
+        $match: appointmentMatch,
+      },
       {
         $lookup: {
           from: "users",
@@ -66,34 +57,59 @@ const getAllDoctorAppointments = async (req, res) => {
           as: "userDetails",
         },
       },
-
       {
         $unwind: "$userDetails",
       },
       {
         $lookup: {
-          from: "prescribes", // Assuming 'prescribes' is the collection where prescription details are stored
+          from: "patients",
+          localField: "appointments.patientId",
+          foreignField: "_id",
+          as: "patientDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$patientDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "prescribes",
           localField: "appointments._id",
-          foreignField: "appointmentId", // Adjust according to the actual field name in 'prescribes'
+          foreignField: "appointmentId",
           as: "prescribeDetails",
         },
       },
       {
         $unwind: {
           path: "$prescribeDetails",
-          // preserveNullAndEmptyArrays: true, // To keep appointments even if they don't have prescriptions
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "coupons",
+          localField: "appointments.couponId",
+          foreignField: "_id",
+          as: "couponDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$couponDetails",
+          preserveNullAndEmptyArrays: true,
         },
       },
       {
         $project: {
           _id: 0,
-          appointments: 1,
-          "userDetails.name": 1,
-          "userDetails.number": 1,
-          "userDetails.age": 1,
-          "userDetails.address": 1,
-          "userDetails.image": 1,
+          appointment: "$appointments",
           prescribe: "$prescribeDetails",
+          coupon: "$couponDetails",
+          patient: "$patientDetails", // Includes `pic`, `name`, etc.
+          user: "$userDetails",       // Optional, includes account-level info
         },
       },
       {
@@ -102,7 +118,8 @@ const getAllDoctorAppointments = async (req, res) => {
       {
         $limit: limit,
       }
-    );
+    ];
+
     const allAppointments = await Doctor.aggregate(pipeline);
 
     return res.send({
@@ -118,14 +135,18 @@ const getAllDoctorAppointments = async (req, res) => {
   }
 };
 
+
+
+
 // Accept or Reject Appointment
 // Method: Patch
-// EndPoint:/accept-reject
+// EndPoint:/appointments/accept-reject
 // status 1 for accepted or 2 for rejected
 const acceptOrRejctAppointment = async (req, res) => {
   try {
     const { appointmentId, status } = req.query;
 
+    // Check if the appointment exists
     const isAppointments = await Appointment.findOne({ _id: appointmentId });
     if (!isAppointments) {
       return res.send({
@@ -133,23 +154,26 @@ const acceptOrRejctAppointment = async (req, res) => {
         message: "Oops Sorry!! No Appointment found.",
       });
     }
-    if (!status == 0 || !status == 1) {
+
+    // Allow only 0, 1, or 2 as valid statuses
+    if (!["0", "1", "2"].includes(status)) {
       return res.send({
         success: 0,
-        message: "Pleaes enter status 0 or 1 ",
+        message: "Please enter status 0, 1 or 2",
       });
     }
 
+    // Update appointment status
     await isAppointments.updateOne({ status });
+
+    // Message based on status
+    let message = "Appointment ";
+    if (status === "1") message += "accepted";
+    else message += "rejected";
+
     return res.send({
       success: 1,
-      message: `Appointment ${
-        status == "1"
-          ? "accepted"
-          : status == "2"
-          ? "rejected"
-          : "change to pending"
-      } successfully.`,
+      message: `${message} successfully.`,
     });
   } catch (error) {
     return res.send({
@@ -158,6 +182,8 @@ const acceptOrRejctAppointment = async (req, res) => {
     });
   }
 };
+
+
 
 // Add Prescribe of appointment
 // Method: Post

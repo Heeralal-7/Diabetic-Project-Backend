@@ -40,8 +40,9 @@ const documentsSchema = Schema(
     },
     panCardStatus: {
       type: String,
-      default: 0,
+      default: "0", // ✅ Corrected
     },
+    
     drivingLicence: {
       type: [String],
       default: [],
@@ -76,6 +77,12 @@ const documentsSchema = Schema(
       type: String,
       default: "0",
     },
+    rejectReasons: {
+      type: Map,
+      of: String, // e.g., { "panCardStatus": "Not clear", "aadharCardStatus": "Invalid doc" }
+      default: {},
+    },
+ 
   },
   { timestamps: true }
 );

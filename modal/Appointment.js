@@ -2,6 +2,7 @@ const { Schema, model } = require("mongoose");
 
 const appointmentSchema = Schema(
   {
+
     serviceType: {
       type: String,
       default: "",
@@ -137,7 +138,7 @@ const appointmentSchema = Schema(
       ref: "AddMember",
       default: null,
     },
-    problem: {
+   problemDescription: {
       type: String,
       default: "",
     },
@@ -156,7 +157,17 @@ const appointmentSchema = Schema(
     method:{
       type:String,
       default:""
-    }
+    },
+    age: {
+      type: Number,
+      required: false, // or true if you want it mandatory
+    },
+    // couponId
+    couponId: {
+      type: Schema.Types.ObjectId,
+      ref: "Coupon",
+      default: null,
+    },
   },
   {
     Timestamp: true,

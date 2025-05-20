@@ -100,26 +100,29 @@ const getCouponOfDoctor = async (req, res) => {
     await checkCoupon(req.user._id);
 
     const findVendorCoupon = await Coupon.find({
-      $and: [{ doctorId: req.user._id }, { status: { $ne: "2" } }],
+      doctorId: req.user._id
     });
-    if (!findVendorCoupon) {
-      return {
+
+    if (!findVendorCoupon || findVendorCoupon.length === 0) {
+      return res.send({
         success: 0,
         message: "No Coupon found",
-      };
+      });
     }
+
     return res.send({
       success: 1,
       message: "Coupon fetched successfully",
       details: findVendorCoupon,
     });
   } catch (error) {
-    return {
+    return res.send({
       success: 0,
       message: error.message,
-    };
+    });
   }
 };
+
 
 // Get all coupon according to status
 // Method:get

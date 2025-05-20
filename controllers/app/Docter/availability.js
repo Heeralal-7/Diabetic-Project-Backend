@@ -40,6 +40,7 @@ const createAvailability = async (req, res) => {
     return res.send({
       success: 1,
       message: "Created successfully",
+      details:newAvailability
     });
   } catch (error) {
     return res.send({

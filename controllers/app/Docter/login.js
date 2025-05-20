@@ -380,14 +380,9 @@ const registerDoctor = async (req, res) => {
       councilNumber,
       clinicName,
       password,
-      patientstreated,
-      Award,
-      About,
-      Verified,
-      phnOtp,
     } = req.body;
 
-    // Required fields validation
+    // Validate required fields
     if (
       !name ||
       !email ||
@@ -403,9 +398,7 @@ const registerDoctor = async (req, res) => {
       !licenceNumber ||
       !councilNumber ||
       !clinicName ||
-      !password ||
-      !patientstreated ||
-      !About
+      !password
     ) {
       return res.send({
         success: 0,
@@ -413,13 +406,11 @@ const registerDoctor = async (req, res) => {
       });
     }
 
-    // Check for existing doctor
     const isExist = await Docter.findOne({
       $or: [{ email }, { phoneNumber }],
     });
 
     if (isExist) {
-      // Delete uploaded files if user exists
       if (req.files) {
         if (req.files.image) {
           fs.unlinkSync(req.files.image[0].path);
@@ -437,11 +428,26 @@ const registerDoctor = async (req, res) => {
       });
     }
 
-    // Hash the password
     const salt = await bcrypt.genSalt(10);
     const hashPass = await bcrypt.hash(password, salt);
 
-    // Create the doctor
+    // Handle file upload paths and statuses
+    let certificateImage = "";
+    let licenceCertificate = "";
+    let CertificateStatus = "0";
+    let licenceCertificateStatus = "0";
+
+    if (req.files) {
+      if (req.files.certificate && req.files.certificate[0]) {
+        certificateImage = `/doctor/certificateImage/${req.files.certificate[0].filename}`;
+        CertificateStatus = "1";
+      }
+      if (req.files.licenceImage && req.files.licenceImage[0]) {
+        licenceCertificate = `/doctor/licenceImage/${req.files.licenceImage[0].filename}`;
+        licenceCertificateStatus = "1";
+      }
+    }
+
     const createDoctor = await Docter.create({
       name,
       image: req.files?.image ? `/doctor/image/${req.files.image[0].filename}` : "",
@@ -460,17 +466,28 @@ const registerDoctor = async (req, res) => {
       licenceNumber,
       councilNumber,
       clinicName,
+      certificateImage,
+      CertificateStatus,
+      licenceCertificate,
+      licenceCertificateStatus,
       password: hashPass,
-      About,
-      patientstreated,
-      phnOtp
     });
+
+    let docs = await Document.create({
+      doctorCertificate: certificateImage,
+      licenceNo: licenceCertificate,
+      doctorId: createDoctor._id,
+    });
+
+    await Docter.findOneAndUpdate(
+      { _id: createDoctor._id },
+      { myDocumentId: docs._id }
+    );
 
     return res.send({
       success: 1,
       message: "You have been registered successfully",
     });
-
   } catch (error) {
     return res.send({
       success: 0,
@@ -478,6 +495,7 @@ const registerDoctor = async (req, res) => {
     });
   }
 };
+
 
 // Login doctor
 // Method:Post
@@ -561,13 +579,19 @@ const loginDoctor = async (req, res) => {
 //     });
 //   }
 // };
-
+// /doctor/get-doctor
 const getDoctor = async (req, res) => {
   try {
     const data = await Docter.findOne({ _id: req.user._id }).populate({
       path: "myDocumentId",
-      select:
-        "licenceNo accreditation doctorCertificate aadharCard panCard drivingLicence",
+      select: `
+        licenceNo licenceNoStatus 
+        accreditation accreditationStatus 
+        doctorCertificate doctorCertificateStatus 
+        aadharCard aadharCardStatus 
+        panCard panCardStatus 
+        drivingLicence drivingLicenceStatus
+      `,
     });
 
     if (!data) {
@@ -603,6 +627,7 @@ const getDoctor = async (req, res) => {
     });
   }
 };
+
 
 //Update doctor profile
 //Method:PATCH

@@ -73,4 +73,36 @@ const applyCoupon = async (req, res) => {
   }
 };
 
-module.exports = { applyCoupon };
+//    /user-applycoupon/getCoupon
+const getCoupon = async (req, res) => {
+  try {
+    const { doctorId } = req.body; // 🟠 Doctor ID from request body
+    const userId = req.user?.userId; // 🔵 User ID from token (middleware se aayega)
+
+    if (!doctorId) {
+      return res.send({
+        success: 0,
+        message: "Doctor ID is required",
+      });
+    }
+
+    // 🔍 Find all coupons created by this doctor
+    const coupons = await Coupon.find({ doctorId });
+
+    return res.send({
+      success: 1,
+      message: "Coupons fetched successfully",
+      userId,       // from token
+      doctorId,     // from body
+      coupons,
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+
+module.exports = { applyCoupon,getCoupon };

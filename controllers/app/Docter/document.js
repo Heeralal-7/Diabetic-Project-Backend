@@ -11,57 +11,59 @@ const mydocument = async (req, res) => {
     if (!document) {
       document = await Document.create({ doctorId });
       console.log("Created new document entry");
+    } else {
+      document = await Document.findById(document._id);
     }
 
-    // 2. Always ensure myDocumentId is set on Doctor (even if already existed)
+    // 2. Link document to doctor
     await Doctor.updateOne(
       { _id: doctorId },
       { $set: { myDocumentId: document._id } }
     );
 
-    // 3. Prepare file paths
-    const aadharCardPaths = [];
-    const panCardPaths = [];
-    const drivingLicencePaths = [];
-
-    if (req.files?.aadharCard) {
-      req.files.aadharCard.forEach((file) => {
-        aadharCardPaths.push(`/doctor/aadharCard/${file.filename}`);
-      });
-    }
-
-    if (req.files?.panCard) {
-      req.files.panCard.forEach((file) => {
-        panCardPaths.push(`/doctor/panCard/${file.filename}`);
-      });
-    }
-
-    if (req.files?.drivingLicence) {
-      req.files.drivingLicence.forEach((file) => {
-        drivingLicencePaths.push(`/doctor/drivingLicence/${file.filename}`);
-      });
-    }
-
-    // 4. Prepare update data for Document
-    const updateData = {
-      licenceNo: req.files?.licenceImage
-        ? `/doctor/licenceImage/${req.files.licenceImage[0].filename}`
-        : document.licenceNo,
-      accreditation: req.files?.accreditation
-        ? `/doctor/accreditation/${req.files.accreditation[0].filename}`
-        : document.accreditation,
-      aadharCard: aadharCardPaths.length > 0 ? aadharCardPaths : document.aadharCard,
-      panCard: panCardPaths.length > 0 ? panCardPaths : document.panCard,
-      drivingLicence:
-        drivingLicencePaths.length > 0
-          ? drivingLicencePaths
-          : document.drivingLicence,
-      doctorCertificate: req.files?.doctorCertificate
-        ? `/doctor/doctorCertificate/${req.files.doctorCertificate[0].filename}`
-        : document.doctorCertificate,
+    // 3. Prepare helper functions
+    const getFilePath = (fieldName, folder) => {
+      return req.files?.[fieldName]?.[0]?.filename
+        ? `/doctor/${folder}/${req.files[fieldName][0].filename}`
+        : document[fieldName];
     };
 
-    // 5. Update the document
+    const getFileStatus = (fieldName) => {
+      return req.files?.[fieldName]?.[0]?.filename ? "1" : document[`${fieldName}Status`];
+    };
+
+    const getFileArrayPaths = (fieldName, folder) => {
+      return req.files?.[fieldName]
+        ? req.files[fieldName].map(file => `/doctor/${folder}/${file.filename}`)
+        : document[fieldName];
+    };
+
+    const getArrayStatus = (fieldName) => {
+      return req.files?.[fieldName] ? "1" : document[`${fieldName}Status`];
+    };
+
+    // 4. Prepare update data
+    const updateData = {
+      licenceNo: getFilePath("licenceImage", "licenceImage"),
+      licenceNoStatus: getFileStatus("licenceImage"),
+
+      accreditation: getFilePath("accreditation", "accreditation"),
+      accreditationStatus: getFileStatus("accreditation"),
+
+      aadharCard: getFileArrayPaths("aadharCard", "aadharCard"),
+      aadharCardStatus: getArrayStatus("aadharCard"),
+
+      panCard: getFileArrayPaths("panCard", "panCard"),
+      panCardStatus: getArrayStatus("panCard"),
+
+      drivingLicence: getFileArrayPaths("drivingLicence", "drivingLicence"),
+      drivingLicenceStatus: getArrayStatus("drivingLicence"),
+
+      doctorCertificate: getFilePath("doctorCertificate", "doctorCertificate"),
+      doctorCertificateStatus: getFileStatus("doctorCertificate"),
+    };
+
+    // 5. Update document
     await Document.updateOne({ doctorId }, { $set: updateData });
 
     return res.send({
@@ -76,5 +78,8 @@ const mydocument = async (req, res) => {
     });
   }
 };
+
+
+
 
 module.exports = { mydocument };

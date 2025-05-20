@@ -1,6 +1,7 @@
 const Order = require("../../../../modal/foodOrder");
 const FoodOrder = require("../../../../modal/foodOrder");
 const Driver = require("../../../../modal/driver");
+const Vendor = require("../../../../modal/vandor");
 
 //Get ordered food
 //Method:Get
@@ -164,19 +165,25 @@ const getAcceptedOrders = async (req, res) => {
   try {
     const vendorId = req.user._id;
 
-    // Fetch only accepted orders (status === "1") that are either:
-    // - single item (items array length = 1)
-    // - bulk item (at least one item with quantity > 1)
-    const acceptedOrders = await FoodOrder.find({
+    // Single-item orders
+    const singleItemOrders = await FoodOrder.find({
       vendorId: vendorId,
-      status: "1", // Make sure this matches exactly how status is stored (string or number)
-      $or: [
-        { items: { $size: 1 } },
-        { "items.quantity": { $gt: 1 } },
-      ],
+      status: "1",
+      items: { $size: 1 },
     })
       .populate("userId")
       .populate("items.FoodItem");
+
+    // Bulk orders
+    const bulkOrders = await FoodOrder.find({
+      vendorId: vendorId,
+      status: "1",
+      items: { $elemMatch: { quantity: { $gt: 1 } } },
+    })
+      .populate("userId")
+      .populate("items.FoodItem");
+
+    const acceptedOrders = [...singleItemOrders, ...bulkOrders];
 
     return res.send({
       success: 1,
@@ -191,6 +198,8 @@ const getAcceptedOrders = async (req, res) => {
     });
   }
 };
+
+
 
 // Assign driver to order
 // Method: POST
@@ -319,7 +328,59 @@ const getOnlineDrivers = async (req, res) => {
     });
   }
 };
+//  /vendor-order/orderHistorydriver
+const orderHistorydriver = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
 
+    // Get all orders that are either delivered (5) or rejected (6)
+    const orders = await Order.find({
+      vendorId,
+      status: { $in: ["5", "6"] }, // 5 = Delivered, 6 = Rejected
+    })
+    .populate("userId") // Full user details
+    .populate("vendorId") // Full vendor details
+    .populate("driverId") // ✅ Add driver details (self)
+    .populate("items.FoodItem") // food items
+      .populate("driverId", "name phoneNumber")          // driver info
+      .sort({ updatedAt: -1 });                           // latest first
 
+    // Format the response with more details
+    const formattedOrders = orders.map(order => ({
+      _id: order._id,
+      orderId: order.orderId, // if you have an order ID field
+      status: order.status,
+      statusText: order.status === "5" ? "Delivered" : "Rejected",
+      totalAmount: order.totalAmount,
+      deliveryAddress: order.deliveryAddress,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      rejectionReason: order.rejectionReason || null,
+      user: order.userId,
+      vendor: order.vendorId,
+      driver: order.driverId,
+      items: order.items.map(item => ({
+        foodItem: item.FoodItem,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+    }));
 
-module.exports = { getFoodOrder, changeOrderStatus, getOrder,orderHistory, getAcceptedOrders,assignDriverToOrder,getOrderWithDriver,getOnlineDrivers };
+    return res.send({
+      success: 1,
+      message: "Order history fetched successfully",
+      count: orders.length,
+      details: formattedOrders,
+    });
+
+  } catch (error) {
+    console.error("Order history error:", error);
+    return res.status(500).send({
+      success: 0,
+      message: "Failed to fetch order history",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = { getFoodOrder, changeOrderStatus, getOrder,orderHistory, getAcceptedOrders,assignDriverToOrder,getOrderWithDriver,getOnlineDrivers,orderHistorydriver };

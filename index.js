@@ -41,6 +41,10 @@ app.use("/customer", require("./routes/admin/adminCustomerSupport"));
 app.use("/admin-pharmacy-all", require("./routes/admin/Vendor/Pharmacy/user")) 
 app.use("/admin-user" , require("./routes/admin/User/user"))
 app.use("/admin-food" , require("./routes/admin/Vendor/Food/addFood"))
+app.use("/doctorAccess", require("./routes/admin/Doctor/doctorAccess"));
+app.use("/upload-excel", require("./routes/admin/Vendor/Pharmacy/Medicine")); // upload medicine
+app.use("/upload-excel-hospital", require("./routes/admin/Vendor/Pharmacy/Products")); // upload hospital product
+ 
 ////////////    Admin Routes End    /////////////////////
 
 ////////////// App Rotues Start  //////////////////
@@ -72,6 +76,7 @@ app.use("/driver", require("./routes/app/vendor/lab/driver"));
 app.use("/pick", require("./routes/app/vendor/lab/pickup"));
 app.use("/vendor-rating", require("./routes/app/vendor/lab/rating"));
 app.use("/services", require("./routes/app/vendor/pharmacy/addService"));
+app.use("/Products", require("./routes/app/vendor/pharmacy/addProducts"));
 app.use("/appointment", require("./routes/app/vendor/pharmacy/appointments"));
 app.use("/organ" , require("./routes/app/vendor/lab/organ"))
 app.use('/bulk' , require("./routes/app/vendor/lab/addPackageCategories"))

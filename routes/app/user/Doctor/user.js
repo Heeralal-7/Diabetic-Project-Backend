@@ -2,6 +2,8 @@ const { Router } = require("express");
 const multer = require("multer");
 
 const { doctorMiddleware } = require("../../../../middleware/auth");
+const { middlewere } = require("../../../../middleware/auth");
+
 const {
   getAllDoctor,
   getSingleDoctor,
@@ -9,7 +11,7 @@ const {
 
 const route = Router();
 
-route.get("/", doctorMiddleware, getAllDoctor);
+route.get("/", middlewere, getAllDoctor);
 route.get("/profile", doctorMiddleware, getSingleDoctor);
 
 module.exports = route;

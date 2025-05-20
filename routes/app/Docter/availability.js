@@ -11,7 +11,8 @@ const { doctorMiddleware } = require("../../../middleware/auth");
 const router = Router();
 
 router.post("/create", doctorMiddleware, createAvailability);
-router.post("/dates", doctorMiddleware, getAvailabiltyOfDoctorAndTime);
-router.get("/", doctorMiddleware, getAllStartAndEndDate);
+router.get("/dates", doctorMiddleware, getAllStartAndEndDate);
 
+router.post("/getAvailabilty", doctorMiddleware, getAvailabiltyOfDoctorAndTime);
+ 
 module.exports = router;
