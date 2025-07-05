@@ -125,9 +125,14 @@ const appointmentSchema = Schema(
       default: null,
     },
     type: {
-      type: String,
-      default: "0",
+      type: String, // "online" or "offline"
+      required: true
     },
+    callStatus: {
+      type: String, 
+      default: "0"
+    },
+    
     driverId: {
       type: Schema.Types.ObjectId,
       ref: "Driver",
@@ -168,6 +173,42 @@ const appointmentSchema = Schema(
       ref: "Coupon",
       default: null,
     },
+    PostponeStaus:{
+      type:String,
+      default:"0"
+    },
+    selectavailbilty: {
+      type: String,
+      enum: ['morning', 'afternoon', 'evening'],
+    },
+    rejectionReason: {
+      type: String,
+      default: null,
+    },
+    clinicId: {
+      type: Schema.Types.ObjectId,
+      ref: "Clinic",
+      default: null,
+    },
+    clinicStatus:{
+      type:String,
+      defaut:""
+    },
+    AddMemberId: {
+      type: Schema.Types.ObjectId,
+      ref: "AddMember",
+      default: null,
+    },
+    isPaid: {
+      type: Boolean,
+      default: false,
+    },
+    
+    paymentDetails: {
+      type: Object,
+      default: {}, // Optional: ensures it's initialized as an object
+    }
+
   },
   {
     Timestamp: true,

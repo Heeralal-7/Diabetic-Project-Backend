@@ -1,5 +1,5 @@
 const { Router } = require("express");
-const { generateAccessToken } = require("../../controllers/agora/agora");
+const { generateAccessToken, chatuser, getChat } = require("../../controllers/agora/agora");
 
 const router = Router();
 const nocache = (req, resp, next) => {
@@ -10,5 +10,6 @@ const nocache = (req, resp, next) => {
 };
 
 router.get("/access_token", nocache, generateAccessToken);
-
+router.post("/chatuser",chatuser)
+router.get("/getChat",getChat)
 module.exports = router;

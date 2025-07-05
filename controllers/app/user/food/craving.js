@@ -463,13 +463,15 @@ const replaceItem = async (req, res) => {
 
 
 //craving/getMeal
+// Method: GET
+// Endpoint: /craving/getMeal
 const getMeal = async (req, res) => {
   try {
-    const { id } = req.body;
-
+    const id = req.body.id || req.query.id; // body ya query dono me se id le lo
+ 
     // Find all food items with this MealId
     const data = await Food.find({ MealId: id });
-
+ 
     return res.send({
       success: 1,
       message: "Items fetched successfully",
@@ -482,8 +484,67 @@ const getMeal = async (req, res) => {
     });
   }
 };
+ 
+ 
 
+// Update cart item quantity (((( for only website ))))
+// Method: PUT
+// Endpoint: /craving/updateQuantity
+const updateQuantity = async (req, res) => {
+  try {
+    const { foodItemId, quantity } = req.body;
+    const userId = req.user._id;
 
+    if (!mongoose.Types.ObjectId.isValid(foodItemId)) {
+      return res.status(400).json({ success: 0, message: "Invalid FoodItem ID" });
+    }
+
+    const qty = parseInt(quantity);
+    if (isNaN(qty) || qty < 1) {
+      return res.status(400).json({ success: 0, message: "Quantity must be a positive number" });
+    }
+
+    // Find cart item
+    const cartItem = await Cart.findOne({ FoodItem: foodItemId, userId });
+    if (!cartItem) {
+      return res.status(404).json({ success: 0, message: "Cart item not found" });
+    }
+
+    // Find food item
+    const foodItem = await Food.findById(foodItemId);
+    if (!foodItem) {
+      return res.status(404).json({ success: 0, message: "Food item not found" });
+    }
+
+    // Update quantities
+    cartItem.quantity = qty;
+    foodItem.quantity = qty;
+
+    // Calculate final price
+    const basePrice = Number(foodItem.amount);
+    cartItem.finalprice = basePrice * qty;
+
+    // Save changes
+    await cartItem.save();
+    await foodItem.save();
+
+    return res.status(200).json({
+      success: 1,
+      message: "Quantity updated successfully",
+      data: {
+        cartItem,
+        foodItem
+      }
+    });
+
+  } catch (error) {
+    console.error("Update quantity error:", error);
+    return res.status(500).json({
+      success: 0,
+      message: error.message || "Failed to update quantity"
+    });
+  }
+};
 
 
 
@@ -499,5 +560,6 @@ module.exports = {
   removeCart,
   getCartData,
   addExtraItems,
-  getMeal
+  getMeal,
+  updateQuantity // for only website
 };

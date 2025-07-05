@@ -4,7 +4,17 @@ const {
  
     getHospitalProductsData,
     updateHospitalProductStock,
-    getVendorHospitalProducts
+    getVendorHospitalProducts,
+    getVendorOrders,
+    acceptVendorOrder,
+    getAcceptedVendorOrders,
+    rejectVendorOrder,
+    getRejectedOrders,
+    getAvailableDrivers,
+    assignDriverToOrder,
+    getPharmacyOrderWithDriver,
+    getOrderHistory,
+    getAllActiveOrders
 } = require("../../../../controllers/app/vandor/pharmacy/addProducts");
 // const multer = require("multer");
  
@@ -29,6 +39,19 @@ const route = Router();
 route.get("/getProducts", VendorMiddleware, getHospitalProductsData);
 route.post("/update-stock", VendorMiddleware, updateHospitalProductStock);
 route.get("/vendor-products", VendorMiddleware, getVendorHospitalProducts);
+ 
+route.get("/vendor-orders", VendorMiddleware, getVendorOrders);
+route.patch("/accept-orders", VendorMiddleware, acceptVendorOrder);
+route.get("/get-accepted-orders", VendorMiddleware, getAcceptedVendorOrders);
+route.patch("/reject-orders", VendorMiddleware, rejectVendorOrder);
+route.get("/get-rejected-orders", VendorMiddleware, getRejectedOrders);
+ 
+route.get("/available-drivers", VendorMiddleware, getAvailableDrivers);
+route.patch("/assign-driver", VendorMiddleware, assignDriverToOrder);
+route.get("/get-driver-order", VendorMiddleware, getPharmacyOrderWithDriver);
+route.get("/vendor-order-history", VendorMiddleware, getOrderHistory);
+route.get("/active-orders", VendorMiddleware, getAllActiveOrders);
+ 
  
 module.exports = route;
  

@@ -7,9 +7,10 @@ const Doctor = require("../../../modal/docter");
 const createFees = async (req, res) => {
   try {
     const { onlineFees, offlineFees } = req.body;
+    const doctorId = req.user._id;
 
-    // Check if doctor exists
-    const doctor = await Doctor.findById(req.user._id);
+    // 1) Check if doctor exists (based on token)
+    const doctor = await Doctor.findById(doctorId);
     if (!doctor) {
       return res.send({
         success: 0,
@@ -17,28 +18,32 @@ const createFees = async (req, res) => {
       });
     }
 
-    // Check if fees already exist for the doctor
-    const existingFees = await ConsultationFees.findOne({ doctorId: req.user._id });
-
+    // 2) Check if fees already exist for this doctor
+    const existingFees = await ConsultationFees.findOne({ doctorId });
     if (existingFees) {
       return res.send({
         success: 0,
-        message: "You have already created charges. Please delete the existing one to create new.",
+        message:
+          "You have already created charges. Please delete the existing one to create new.",
       });
     }
 
-    // Create new fees
-    await ConsultationFees.create({
+    // 3) Create new ConsultationFees document
+    const createdFees = await ConsultationFees.create({
       onlineFees,
       offlineFees,
-      doctorId: req.user._id,
+      doctorId,
     });
+
+    // 4) Now update the Doctor document so that ConsultationFeesId points to the newly created document
+    doctor.ConsultationFeesId = createdFees._id;
+    await doctor.save();
 
     return res.send({
       success: 1,
-      message: "Fees created successfully",
+      message: "Fees created and linked to doctor successfully",
+      data: createdFees,
     });
-
   } catch (error) {
     return res.send({
       success: 0,
@@ -46,7 +51,6 @@ const createFees = async (req, res) => {
     });
   }
 };
-
   
 // Get fees
 // Method:Get

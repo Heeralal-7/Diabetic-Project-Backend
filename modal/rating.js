@@ -24,6 +24,10 @@ const ratingSchema = Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
     },
+    ClinicId: {
+      type: Schema.Types.ObjectId,
+      ref: "Clinic",
+    },
   },
 
   { timestamps: true }

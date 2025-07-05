@@ -1,12 +1,17 @@
-const Medicine = require("../../../../modal/MedicineSchema"); // Update path if needed
+//medicine.js
+const Medicine = require("../../../../modal/MedicineSchema");
+const Service = require("../../../../modal/VendorMedicine");
+const PharmacyMedicine = require("../../../../modal/VendorMedicine");
+const vendor = require("../../../../modal/vandor");
 const fs = require("fs");
 const ExcelJS = require('exceljs');
+const mongoose = require("mongoose");
  
  
 // Upload Excel and save to DB
  
 // Method: POST
-// Endpoint: /upload-excel/upload-medicine-excel
+// Endpoint: /admin-medicine/upload-medicine-excel
 const uploadMedicineExcel = async (req, res) => {
     try {
       if (!req.file) {
@@ -65,7 +70,7 @@ const uploadMedicineExcel = async (req, res) => {
  
 // Get all medicine data
 // Method: GET
-// Endpoint: /upload-excel/get-all-medicine
+// Endpoint: /admin-medicine/get-all-medicine
 const getAllMedicineData = async (req, res) => {
     try {
       const medicines = await Medicine.find({});
@@ -81,6 +86,172 @@ const getAllMedicineData = async (req, res) => {
       res.status(500).send({ success: 0, message: err.message });
     }
   };
-module.exports = { uploadMedicineExcel, getAllMedicineData };
+ 
+ 
+// Admin: Update medicine details
+// Method: PUT
+// Endpoint: /admin-medicine/update-medicine
+const updateMedicine = async (req, res) => {
+  try {
+    const { Id } = req.query;
+    const updateData = req.body;
+ 
+    if (!Id) {
+      return res.status(400).send({
+        success: 0,
+        message: "Id is required",
+      });
+    }
+ 
+    let updatedMedicine;
+ 
+    // If it's a valid MongoDB ObjectId, search by _id
+    if (mongoose.Types.ObjectId.isValid(Id)) {
+      updatedMedicine = await Medicine.findByIdAndUpdate(
+        Id,
+        updateData,
+        { new: true, runValidators: true }
+      );
+    }
+    
+    // Otherwise, search by custom "Id" field
+    if (!updatedMedicine) {
+      updatedMedicine = await Medicine.findOneAndUpdate(
+        { Id: Id },
+        updateData,
+        { new: true, runValidators: true }
+      );
+    }
+ 
+    if (!updatedMedicine) {
+      return res.status(404).send({
+        success: 0,
+        message: "Medicine not found",
+      });
+    }
+ 
+    return res.send({
+      success: 1,
+      message: "Medicine updated successfully",
+      details: updatedMedicine,
+    });
+  } catch (error) {
+    return res.status(500).send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+ 
+ 
+  // Admin: Get pending approval medicines
+// Method: GET
+// Endpoint: /admin-medicine/pending-medicine/:id
+ 
+const getPendingMedicines = async (req,res)=>{
+  try {
+    const data = await PharmacyMedicine.find({onStatus:"0"})
+    return res.send({
+      success:1,
+      message:"fetch succesfully",
+      details:data
+    })
+  } catch (error) {
+    return res.send({
+      success:0,
+      message:error.message
+    })
+  }
+}
+ 
+ 
+// Admin: Approve a medicine
+// Method: patch
+// Endpoint: /admin-medicine/approve-medicine/:id
+ 
+const approveMedicine = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log("Approving Medicine ID:", id);
+ 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).send({
+        success: 0,
+        message: "Invalid ID format",
+      });
+    }
+ 
+    const updated = await PharmacyMedicine.findByIdAndUpdate(
+      id,
+      { onStatus: "1" },
+      { new: true }
+    );
+ 
+    if (!updated) {
+      console.log("Medicine not found in DB");
+      return res.status(404).send({
+        success: 0,
+        message: "Medicine not found",
+      });
+    }
+ 
+    return res.send({
+      success: 1,
+      message: "Medicine approved successfully",
+      details: updated,
+    });
+  } catch (error) {
+    console.log("Error:", error.message);
+    return res.status(500).send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+ 
+ 
+// Admin: Reject a medicine
+// Method: patch
+// Endpoint: /admin-medicine/reject-medicine/:id
+const rejectMedicine = async (req, res) => {
+  try {
+    const { id } = req.params;
+ 
+    const updated = await PharmacyMedicine.findByIdAndUpdate(
+      id,
+      { onStatus: "2" },
+      { new: true }
+    );
+ 
+    if (!updated) {
+      return res.status(404).send({
+        success: 0,
+        message: "Medicine not found",
+      });
+    }
+ 
+    return res.send({
+      success: 1,
+      message: "Medicine rejected successfully",
+      details: updated,
+    });
+  } catch (error) {
+    return res.status(500).send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+ 
+ 
+ 
+ 
+ 
+module.exports = { uploadMedicineExcel, getAllMedicineData ,
+  getPendingMedicines,
+  approveMedicine,
+  rejectMedicine,
+  updateMedicine
+};
  
  

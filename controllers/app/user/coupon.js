@@ -5,21 +5,36 @@ const Coupon = require("../../../modal/Coupon");
 //Endpoints:/user-coupons/get-coupon
 const getCoupons = async (req, res) => {
   try {
+    const { id } = req.query;
+
+    if (!id) {
+      return res.send({
+        success: 0,
+        message: "ID is required",
+      });
+    }
+
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - 30);
 
-    const coupons = await Coupon.find({
+    const filter = {
       createdAt: { $gte: startDate, $lte: endDate },
-    });
+      $or: [
+        { doctorId: id },
+        { vendorId: id },
+        { pharmacyId: id }
+      ]
+    };
 
-    const couponcounts  = coupons.length
+    const coupons = await Coupon.find(filter);
+    const couponcounts = coupons.length;
+
     return res.send({
       success: 1,
       message: "Fetched successfully",
-      count :couponcounts,
+      count: couponcounts,
       data: coupons,
-      
     });
   } catch (error) {
     return res.send({
@@ -28,5 +43,6 @@ const getCoupons = async (req, res) => {
     });
   }
 };
+
 
 module.exports = { getCoupons };

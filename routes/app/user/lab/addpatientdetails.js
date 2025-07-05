@@ -4,6 +4,8 @@ const multer = require("multer");
 const {
   addpatient,
   getPatient,
+  updatePatientAddress,
+  deletePatientAddress,
 } = require("../../../../controllers/app/vandor/lab/addPatientdetails");
 const route = Router();
 
@@ -24,5 +26,7 @@ const upload = multer({ storage: storage });
 
 route.post("/new", upload.single("pic"), middlewere, addpatient);
 route.get("/fetch", middlewere, getPatient);
+route.put("/update/:id", middlewere, updatePatientAddress);
+route.delete("/delete/:id", middlewere, deletePatientAddress);
 
 module.exports = route;

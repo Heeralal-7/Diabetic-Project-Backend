@@ -5,8 +5,9 @@ const Vendor = require("../../../../modal/vandor");
 
 //Get ordered food
 //Method:Get
-//Endpoint: /vendor-order/order?orderType
+//Endpoint: /vendor-order/order
 //status: 0 for pending , 1 for accept , 2 for reject
+// orderType: "Single" for single item orders, "Bulk" for bulk orders
 const getFoodOrder = async (req, res) => {
   try {
     const { orderType } = req.query;
@@ -85,19 +86,16 @@ const getOrder = async (req, res) => {
     const limitNum = parseInt(limit, 10);
 
     const data = await Order.find({ status })
-    .populate({
-        path: "foodId",
-        populate: {
-          path: "FoodItem",
-          model: "Food",
-        },
-      })
+      .populate("userId")
+      .populate("items.FoodItem")
+      .populate("vendorId", "name phoneNumber") // Populate vendor details
+      .populate("driverId", "name phoneNumber") // Populate driver details if exists
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum);
 
     return res.send({
       success: 1,
-      message: "Fertched successfully",
+      message: "Fetched successfully",
       details: data,
     });
   } catch (error) {
@@ -112,36 +110,62 @@ const getOrder = async (req, res) => {
 //get order history
 //method:get
 //end point :/ vendor-order/orderHistory
+// Get vendor order history
+// Method: GET
+// Endpoint: /vendor-order/orderHistory
 const orderHistory = async (req, res) => {
   try {
-    const { userId } = req.body;
+    // Get vendorId from the authenticated user (from token)
+    // First check if we have user info from auth middleware
+    const vendorId = req.user?._id || req.vendor?._id;
+    
+    if (!vendorId) {
+      return res.status(400).send({
+        success: 0,
+        message: "Vendor ID is required. Please ensure you're authenticated."
+      });
+    }
 
-    // Log the received userId
-    console.log("Received userId:", userId);
+    // console.log("Fetching orders for vendorId:", vendorId);
 
-    const orders = await FoodOrder.find({ userId })
-      .populate("foodId") // Populate foodId
+    const orders = await FoodOrder.find({ vendorId })
+      .populate("items.FoodItem") // Populate foodId if needed
+      // .populate("items.FoodItem")
       .populate("vendorId") // Populate vendorId
+      .populate("userId") // Populate user details
+      .populate("driverId") // Populate driver details if exists
       .sort({ createdAt: -1 });
 
-    // Log the fetched orders with populated foodId and vendorId
-    console.log("Fetched orders:", orders);
+    console.log(`Found ${orders.length} orders for vendor ${vendorId}`);
 
     if (orders.length === 0) {
       return res.status(200).send({
         success: 1,
-        message: "No orders found for the given userId",
+        message: "No orders found for this vendor",
         orders: [],
       });
     }
 
     const updatedOrders = orders.map(order => {
       const updatedOrder = order.toObject();
-      if (updatedOrder.status === "0") {
-        updatedOrder.status = "Pending";
-      } else if (updatedOrder.status === "1") {
-        updatedOrder.status = "Order Delivered";
+      
+      // Convert status codes to readable text
+      const statusMap = {
+        "0": "Pending",
+        "1": "Accepted",
+        "2": "Driver Assigned",
+        "5": "Delivered",
+        "6": "Rejected",
+        "Order Delivered": "Delivered" // Fix typo in original status
+      };
+
+      updatedOrder.status = statusMap[updatedOrder.status] || "Pending";
+      
+      // Format price to 2 decimal places
+      if (updatedOrder.price) {
+        updatedOrder.price = parseFloat(updatedOrder.price).toFixed(2);
       }
+      
       return updatedOrder;
     });
 
@@ -151,9 +175,10 @@ const orderHistory = async (req, res) => {
       orders: updatedOrders,
     });
   } catch (error) {
+    console.error("Error in orderHistory:", error);
     return res.status(500).send({
       success: 0,
-      message: error.message,
+      message: error.message || "Internal server error",
     });
   }
 };
@@ -203,7 +228,7 @@ const getAcceptedOrders = async (req, res) => {
 
 // Assign driver to order
 // Method: POST
-// Endpoint: /vendor-order/assign-driver/:id
+// Endpoint: /vendor-order/assign-driver
 const assignDriverToOrder = async (req, res) => {
   try {
     const { orderId, driverId } = req.body;

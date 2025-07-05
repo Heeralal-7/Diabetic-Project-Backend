@@ -31,7 +31,6 @@ const MedicineSchema = new mongoose.Schema({
   for_sale: String,
   stock: {
     type: Number,
-    required: true,
   },
   discount_seller: {
     type: Number, // percentage
@@ -39,6 +38,40 @@ const MedicineSchema = new mongoose.Schema({
   },
  
   bestPrice: String,
+ 
+ 
+    // ⭐ New Fields (as per your request)
+    rating: {
+      type: Number,
+      min: 0,
+      max: 5,
+      default: 0,
+    },
+    reviews: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        comment: String,
+        rating: { type: Number, min: 1, max: 5 },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    boughtParameter: {
+      type: Number,
+      default: 0, // how many times bought
+    },
+    expectedDelivery: {
+      type: String, // e.g. "2-4 days"
+      default: "3-5 Days",
+    },
+          popularCategory: {
+    type: Boolean,
+    default: false
+  },
+  orderCount: {
+    type: Number,
+    default: 0
+  },
+ 
  
 }, {
   timestamps: true

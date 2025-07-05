@@ -70,25 +70,23 @@ const getProfilePercentage = async (user) => {
 const userRegisterAndLogin = async (req, res) => {
   try {
     const { ctrCode, number } = req.body;
+    const otp = "1111";
 
-    const otp = 1111;
+    const checkIsExist = await TempOtp.findOne({ ctrCode, number });
 
-    const checkIsExist = await TempOtp.findOne({
-      $and: [{ ctrCode }, { number }],
-    });
     if (!checkIsExist) {
-      await TempOtp.create({ ctrCode, number, otp });
-      return res.send({
-        success: 1,
-        message: "Otp has been sent successfully",
-      });
+      await TempOtp.create({ ctrCode, number, otp,  });
     } else {
-      await checkIsExist.updateOne({ otp });
-      return res.send({
-        success: 1,
-        message: "Otp has been sent successfully",
-      });
+      await TempOtp.updateOne(
+        { _id: checkIsExist._id },
+        { $set: { otp } }
+      );
     }
+
+    return res.send({
+      success: 1,
+      message: "Otp has been sent successfully",
+    });
   } catch (error) {
     return res.send({
       success: 0,
@@ -97,14 +95,17 @@ const userRegisterAndLogin = async (req, res) => {
   }
 };
 
+
+
+
 // Verfiy User
 // Method:Post
 // EndPoint:"/verify"
 const verifyUser = async (req, res) => {
   try {
-    const { number, otp, ctrCode } = req.body;
+    const { number, otp, ctrCode, regId } = req.body;
 
-    const checkOtp = await TempOtp.findOne({ $and: [{ number }, { ctrCode }] });
+    const checkOtp = await TempOtp.findOne({ number, ctrCode });
     if (!checkOtp) {
       return res.send({
         success: 0,
@@ -118,24 +119,46 @@ const verifyUser = async (req, res) => {
         message: "Please enter correct otp",
       });
     }
-    const userExist = await User.findOne({ $and: [{ number }, { ctrCode }] });
+
+    const userExist = await User.findOne({ number, ctrCode });
+
     if (userExist) {
+      // User exists, update regId + return token
+      const updatedUser = await User.findByIdAndUpdate(
+        userExist._id,
+        {
+          $set: {
+            regId: regId || '',
+          },
+        },
+        { new: true }
+      );
+
       return res.send({
         success: 1,
         message: "User logged in successfully",
         details: {
-          token: userExist.token,
+          token: updatedUser.token,
+          regId: updatedUser.regId,
         },
       });
     } else {
-      let userCreate = await User.create({ number, ctrCode });
-      console.log(userCreate )
-      let checkVal = await User.findByIdAndUpdate(
+      // New user: create and set token, referralCode
+      let userCreate = await User.create({
+        number,
+        ctrCode,
+        regId: regId || '',
+      });
+
+      const token = generateToken(userCreate._id);
+      const referralCode = generateReferralCode();
+
+      const finalUser = await User.findByIdAndUpdate(
         userCreate._id,
         {
           $set: {
-            token: generateToken(userCreate._id),
-            referralCode: generateReferralCode(),
+            token,
+            referralCode,
           },
         },
         { new: true }
@@ -145,8 +168,9 @@ const verifyUser = async (req, res) => {
         success: 1,
         message: "User has been created successfully",
         details: {
-          token: checkVal.token,
-          referralCode: checkVal.referralCode,
+          token: finalUser.token,
+          referralCode: finalUser.referralCode,
+          regId: finalUser.regId,
         },
       });
     }
@@ -157,6 +181,9 @@ const verifyUser = async (req, res) => {
     });
   }
 };
+
+
+
 
 // Update User profile
 // Method:Patch

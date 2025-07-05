@@ -8,7 +8,7 @@ const formatTime = (time) => {
   hours = hours % 12 || 12;
   return `${hours}:${minutes.toString().padStart(2, "0")} ${ampm}`;
 };
-
+  
 // Create user appointments
 // Method:Post
 // EndPoits:/lab-appointment/appointment
@@ -163,7 +163,7 @@ const bookUserAppointment = async (req, res) => {
 
     return res.send({
       message: "Appointment created successfully",
-      success: 1,
+      success: 1, 
     });
   } catch (error) {
     return res.send({
@@ -338,4 +338,85 @@ const bookUserAppointmentPackage = async (req, res) => {
   }
 };
 
-module.exports = { bookUserAppointment, bookUserAppointmentPackage };
+
+// lab-appointment/userorderHistory
+const userorderHistory = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Get all orders that are either delivered (5) or rejected (6)
+    const orders = await Appointment.find({
+      userId,
+      status: { $in: [ "8"] }, // 5 = Delivered, 6 = Rejected
+    })
+    .populate("userId") // Full user details
+    .populate("vendorId") // Full vendor details
+    .populate("driverId") // ✅ Add driver details (self)
+    // .populate("Appointment") // food items
+      .populate("driverId", "name phoneNumber")   
+      .populate({
+        path: 'testId',
+        model: 'Addtest',
+        select: 'testName',
+      })
+      .populate({
+        path: 'packageId',
+        model: 'AddPackage',
+      })    
+      .populate({
+        path: "AddMemberId",
+        model: "AddMember",
+        populate: [
+          {
+            path: "addtestId",
+            model: "Addtest",
+          },
+          {
+            path: "AddPackageId",
+            model: "AddPackage",
+          },
+        ], })  // driver info
+      .sort({ updatedAt: -1 });                           // latest first
+
+
+    return res.send({
+      success: 1,
+      message: "Order history fetched successfully",
+      count: orders.length,
+      details: orders,
+    });
+
+  } catch (error) {
+    console.error("Order history error:", error);
+    return res.status(500).send({
+      success: 0,
+      message: "Failed to fetch order history",
+      error: error.message,
+    });
+  }
+};
+ //       lab-appointment/getAllActiveOrderss
+const getAllActiveOrderss = async (req, res) => {
+  try {
+    // Get all food orders with status from 2 to 6
+    const orders = await Appointment.find({
+      status: { $gte: 2, $lte: 7 },
+    })
+      .populate("userId")     // Full customer info
+      .populate("driverId");  // Full driver info
+
+    return res.status(200).send({
+      success: 1,
+      message: "Active orders fetched successfully",
+      data: orders,
+    });
+
+  } catch (error) {
+    return res.status(500).send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+module.exports = { bookUserAppointment, bookUserAppointmentPackage,userorderHistory,getAllActiveOrderss };

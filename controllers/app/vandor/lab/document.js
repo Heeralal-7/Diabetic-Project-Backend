@@ -9,50 +9,73 @@ const mydocument = async (req, res) => {
     if (!isExist) {
       return res.send({
         success: 0,
-        message: "No documentt found of vendor",
+        message: "No document found for vendor",
       });
     }
-
+ 
     const arr = [];
     const arr1 = [];
     const arr2 = [];
+ 
     if (req.files.addharCard) {
-      const pushData = req.files.addharCard.forEach((d) => {
+      req.files.addharCard.forEach((d) => {
         const pathName = `/vendor/adharCard/${d.filename}`;
         arr.push(pathName);
       });
     }
+ 
     if (req.files.panCard) {
-      const pushData = req.files.panCard.forEach((d) => {
+      req.files.panCard.forEach((d) => {
         const pathName = `/vendor/panCard/${d.filename}`;
         arr1.push(pathName);
       });
     }
+ 
     if (req.files.drivingLicence) {
-      const pushData = req.files.drivingLicence.forEach((d) => {
+      req.files.drivingLicence.forEach((d) => {
         const pathName = `/vendor/drivingLicence/${d.filename}`;
         arr2.push(pathName);
       });
     }
-
-    await isExist.updateOne({
-      registrationNo: req.files.register
-        ? `/vendor/registration/${req.files.register[0].filename}`
-        : isExist.registrationNo,
-      licenceNo: req.files.licence
-        ? `/vendor/licence/${req.files.licence[0].filename}`
-        : isExist.licenceNo,
-      accreditation: req.files.accreditation
-        ? `/vendor/accreditationCertificate/${req.files.accreditation[0].filename}`
-        : isExist.accreditation,
-      addharCard: req.files.addharCard && arr,
-      panCard: req.files.panCard && arr1,
-      drivingLicence: req.files.drivingLicence && arr2,
-    });
-
+ 
+    // Prepare update object dynamically
+    const updateData = {};
+ 
+    if (req.files.register) {
+      updateData.registrationNo = `/vendor/registration/${req.files.register[0].filename}`;
+      updateData.registrationNoStatus = "1";
+    }
+ 
+    if (req.files.licence) {
+      updateData.licenceNo = `/vendor/licence/${req.files.licence[0].filename}`;
+      updateData.licenceNoStatus = "1";
+    }
+ 
+    if (req.files.accreditation) {
+      updateData.accreditation = `/vendor/accreditationCertificate/${req.files.accreditation[0].filename}`;
+      updateData.accreditationStatus = "1";
+    }
+ 
+    if (arr.length > 0) {
+      updateData.aadharCard = arr;
+      updateData.aadharCardStatus = "1";
+    }
+ 
+    if (arr1.length > 0) {
+      updateData.panCard = arr1;
+      updateData.panCardStatus = "1";
+    }
+ 
+    if (arr2.length > 0) {
+      updateData.drivingLicence = arr2;
+      updateData.drivingLicenceStatus = "1";
+    }
+ 
+    await isExist.updateOne(updateData);
+ 
     return res.send({
-      message: "Updated",
       success: 1,
+      message: "Updated",
     });
   } catch (error) {
     return res.send({

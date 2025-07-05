@@ -2,6 +2,7 @@ const { Router } = require("express");
 const multer = require("multer");
 const {
   appointment,
+  getAllUserAppointments,
 } = require("../../../../controllers/app/user/Doctor/Appiontment");
 const { middlewere } = require("../../../../middleware/auth");
 
@@ -25,6 +26,8 @@ route.post(
   appointment
 );
 
+
+route.get("/getAllDoctorAppointments",middlewere,getAllUserAppointments)
 // route.patch('/updatestatus', VendorMiddleware,updateAppointmentStatus)
 
 module.exports = route;

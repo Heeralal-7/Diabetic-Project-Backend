@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const TempPhone = require("../../../modal/TempPhone");
 const Vendor = require("../../../modal/vandor");
 const Order = require("../../../modal/foodOrder");
+const Appointment = require("../../../modal/Appointment");
 
 
 // Generate token
@@ -432,6 +433,47 @@ const arrivedOrder = async (req, res) => {
     return res.send({ success: 0, message: error.message });
   }
 };
+ //   /driver/collectSample
+const collectSample = async (req, res) => {
+  try {
+    const { AppointmentId } = req.query;
+
+    if (!AppointmentId) {
+      return res.send({
+        success: 0,
+        message: "AppointmentId is required",
+      });
+    }
+
+    const updated = await Appointment.findByIdAndUpdate(
+      AppointmentId,
+      { status: 5 },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.send({
+        success: 0,
+        message: "Appointment not found",
+      });
+    }
+
+    return res.send({
+      success: 1,
+      message: "Appointment status updated to 5",
+      data: updated,
+    });
+
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+
+
 
 // Get all orders assigned to driver
 // Method: GET
@@ -444,7 +486,7 @@ const markAsDelivered = async (req, res) => {
 
     if (!order) return res.send({ success: 0, message: "Order not found" });
 
-    order.status = "5"; // 5 = delivered
+    order.status = "6"; // 5 = delivered
     order.deliveryOtp = undefined; // Optional: clear OTP
     await order.save();
 
@@ -676,6 +718,7 @@ module.exports = {
   rejectOrder,
   orderHistory,
   getAllActiveOrders,
-  driverAssignReject
+  driverAssignReject,
+  collectSample
 
 };

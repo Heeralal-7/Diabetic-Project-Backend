@@ -1,5 +1,8 @@
 const Packages = require('../../../../modal/AddPackages')
 
+//get vendor package
+//Method:Get
+//Endpoint:/vendor-package/vendor-package/:id
 const getVendorPackage = async(req,res)=>{
     try {
         const id = req.params.id

@@ -7,7 +7,9 @@ const Wallet = require("../../../modal/wallet");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const fs = require("fs");
-
+const Chat = require("../../../modal/chat")
+const User = require("../../../modal/user")
+const Clinic = require("../../../modal/clinic")
 const genrateToken = (id) => {
   return jwt.sign({ id }, process.env.SECRETKEY);
 };
@@ -380,25 +382,15 @@ const registerDoctor = async (req, res) => {
       councilNumber,
       clinicName,
       password,
+      loginType,
+      clinicId
     } = req.body;
 
-    // Validate required fields
+    // 1) Validate required fields
     if (
-      !name ||
-      !email ||
-      !phoneNumber ||
-      !alternatePhoneNumber ||
-      !address ||
-      !country ||
-      !state ||
-      !city ||
-      !qualification ||
-      !specialist ||
-      !experience ||
-      !licenceNumber ||
-      !councilNumber ||
-      !clinicName ||
-      !password
+      !name || !email || !phoneNumber || !alternatePhoneNumber || !address ||
+      !country || !state || !city || !qualification || !specialist ||
+      !experience || !licenceNumber || !password || !loginType
     ) {
       return res.send({
         success: 0,
@@ -406,21 +398,32 @@ const registerDoctor = async (req, res) => {
       });
     }
 
+    // 2) Validate loginType
+    if (!["app", "clinic"].includes(loginType)) {
+      return res.send({
+        success: 0,
+        message: "Invalid login type. Must be 'app' or 'clinic'",
+      });
+    }
+
+    // 3) Ensure clinicId is provided for clinic loginType
+    if (loginType === "clinic" && !clinicId) {
+      return res.send({
+        success: 0,
+        message: "Clinic ID is required for loginType 'clinic'",
+      });
+    }
+
+    // 4) Check if doctor already exists
     const isExist = await Docter.findOne({
       $or: [{ email }, { phoneNumber }],
     });
-
     if (isExist) {
       if (req.files) {
-        if (req.files.image) {
-          fs.unlinkSync(req.files.image[0].path);
-        }
-        if (req.files.certificate) {
-          fs.unlinkSync(req.files.certificate[0].path);
-        }
-        if (req.files.licenceImage) {
-          fs.unlinkSync(req.files.licenceImage[0].path);
-        }
+        if (req.files.image) fs.unlinkSync(req.files.image[0].path);
+        if (req.files.certificate) fs.unlinkSync(req.files.certificate[0].path);
+        if (req.files.licenceImage) fs.unlinkSync(req.files.licenceImage[0].path);
+        if (req.files.signature) fs.unlinkSync(req.files.signature[0].path);
       }
       return res.send({
         success: 0,
@@ -428,14 +431,17 @@ const registerDoctor = async (req, res) => {
       });
     }
 
+    // 5) Hash password
     const salt = await bcrypt.genSalt(10);
     const hashPass = await bcrypt.hash(password, salt);
 
-    // Handle file upload paths and statuses
+    // 6) Handle file uploads
     let certificateImage = "";
     let licenceCertificate = "";
     let CertificateStatus = "0";
     let licenceCertificateStatus = "0";
+    let signature = "";
+    let signatureStatus = "0";
 
     if (req.files) {
       if (req.files.certificate && req.files.certificate[0]) {
@@ -446,8 +452,13 @@ const registerDoctor = async (req, res) => {
         licenceCertificate = `/doctor/licenceImage/${req.files.licenceImage[0].filename}`;
         licenceCertificateStatus = "1";
       }
+      if (req.files.signature && req.files.signature[0]) {
+        signature = `/doctor/signature/${req.files.signature[0].filename}`;
+        signatureStatus = "1";
+      }
     }
 
+    // 7) Create doctor
     const createDoctor = await Docter.create({
       name,
       image: req.files?.image ? `/doctor/image/${req.files.image[0].filename}` : "",
@@ -469,21 +480,35 @@ const registerDoctor = async (req, res) => {
       certificateImage,
       CertificateStatus,
       licenceCertificate,
+      signature,
+      signatureStatus,
       licenceCertificateStatus,
       password: hashPass,
+      loginType,
+      ClinicId: loginType === "clinic" ? clinicId : null,
     });
 
-    let docs = await Document.create({
+    // 8) Create document record
+    const docs = await Document.create({
       doctorCertificate: certificateImage,
       licenceNo: licenceCertificate,
+      signature: signature,
       doctorId: createDoctor._id,
     });
+    await Docter.findByIdAndUpdate(createDoctor._id, {
+      myDocumentId: docs._id,
+    });
 
-    await Docter.findOneAndUpdate(
-      { _id: createDoctor._id },
-      { myDocumentId: docs._id }
-    );
+    // 9) Add doctor ID to clinic's DoctorId array
+    if (loginType === "clinic") {
+      await Clinic.findByIdAndUpdate(
+        clinicId,
+        { $addToSet: { DoctorId: createDoctor._id } }, // ✅ Prevent duplicate doctorId
+        { new: true }
+      );
+    }
 
+    // 10) Success response
     return res.send({
       success: 1,
       message: "You have been registered successfully",
@@ -496,42 +521,63 @@ const registerDoctor = async (req, res) => {
   }
 };
 
+  
+
+
 
 // Login doctor
 // Method:Post
-// EndPoint:/login
+// EndPoint: doctor/login
 const loginDoctor = async (req, res) => {
   try {
-    const { email, phoneNumber, password } = req.body;
+    const { email, password, regId, loginType } = req.body;
 
-    const findDoctor = await Docter.findOne({
+    // 1) Require loginType and validate it
+    if (!loginType || (loginType !== "app" && loginType !== "clinic")) {
+      return res.send({ success: 0, message: "Invalid or missing loginType" });
+    }
+
+    // 2) Always look up in the Docter collection
+    const user = await Docter.findOne({
       $or: [{ email }, { phoneNumber: email }],
     });
 
-    if (!findDoctor) {
-      res.send({ success: 0, message: "Invalid credentials" });
+    if (!user) {
+      return res.send({ success: 0, message: "Invalid credentials" });
     }
 
-    if (findDoctor && (await bcrypt.compare(password, findDoctor.password))) {
-      // Updating the token
-      const updatedDoctor = await Docter.findOneAndUpdate(
-        { _id: findDoctor._id },
-        { token: genrateToken(findDoctor._id) },
-        { new: true }
-      ).select("-password");
-
+    // 3) Ensure request loginType matches stored loginType
+    if (user.loginType !== loginType) {
       return res.send({
-        success: 1,
-        message: "Doctor logged in successfully",
-        details: {
-          token: updatedDoctor.token,
-        },
+        success: 0,
+        message: `This account is not registerd`,
       });
     }
 
+    // 4) Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.send({ success: 0, message: "Invalid password" });
+    }
+
+    // 5) Generate token
+    const token = genrateToken(user._id);
+
+    // 6) Update token + regId on the Doctor document
+    const updatedUser = await Docter.findOneAndUpdate(
+      { _id: user._id },
+      { token, regId: regId || "" },
+      { new: true }
+    ).select("-password");
+
+    // 7) Return success payload
     return res.send({
-      success: 0,
-      message: "Invalid credentails",
+      success: 1,
+      message: ` logged in successfully`,
+      details: {
+        token: updatedUser.token,
+        regId: updatedUser.regId,
+      },
     });
   } catch (error) {
     return res.send({
@@ -540,6 +586,14 @@ const loginDoctor = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+
+
+
 
 //Get doctor profile
 //Method:GET
@@ -580,45 +634,62 @@ const loginDoctor = async (req, res) => {
 //   }
 // };
 // /doctor/get-doctor
+
+
 const getDoctor = async (req, res) => {
   try {
-    const data = await Docter.findOne({ _id: req.user._id }).populate({
-      path: "myDocumentId",
-      select: `
-        licenceNo licenceNoStatus 
-        accreditation accreditationStatus 
-        doctorCertificate doctorCertificateStatus 
-        aadharCard aadharCardStatus 
-        panCard panCardStatus 
-        drivingLicence drivingLicenceStatus
-      `,
-    });
+    // 1) Find the doctor by _id and populate both myDocumentId & ConsultationFeesId:
+    const doctor = await Docter.findOne({ _id: req.user._id })
+      .populate({
+        path: "myDocumentId",
+        select: `
+          licenceNo licenceNoStatus 
+          accreditation accreditationStatus 
+          doctorCertificate doctorCertificateStatus 
+          aadharCard aadharCardStatus 
+          panCard panCardStatus 
+          drivingLicence drivingLicenceStatus
+        `,
+      })
+      .populate({
+        path: "ConsultationFeesId",
+        select: "onlineFees offlineFees", 
+        // (MongoDB always includes _id by default, so you’ll get _id + these fields)
+      });
 
-    if (!data) {
+    // 2) If no doctor was found, send a 404
+    if (!doctor) {
       return res.status(404).send({
         success: 0,
         message: "Doctor not found",
       });
     }
 
-    const amountCheck = await Wallet.find({ doctorId: req.user._id });
-    const totalAmount = amountCheck.reduce(
-      (acc, total) => acc + parseFloat(total.amount),
+    // 3) Sum up all wallet entries for this doctor:
+    const walletEntries = await Wallet.find({ doctorId: req.user._id });
+    const totalAmount = walletEntries.reduce(
+      (acc, entry) => acc + parseFloat(entry.amount),
       0
     );
 
-    const percentage = await getProfilePercentage(data._doc);
+    // 4) Calculate profile percentage (assuming getProfilePercentage expects the raw document data)
+    const percentage = await getProfilePercentage(doctor._doc);
 
-    const data1 = {
-      ...data._doc,
+    // 5) Merge everything into a single “details” object. doctor._doc already contains:
+    //    - all of the base Doctor fields
+    //    - a populated `myDocumentId` subdocument
+    //    - a populated `ConsultationFeesId` subdocument (with onlineFees/offlineFees)
+    const fullResponseData = {
+      ...doctor._doc,
       amount: totalAmount,
       profilePercentage: percentage,
     };
 
+    // 6) Return 200 with your merged details:
     return res.status(200).send({
       success: 1,
       message: "Fetched successfully",
-      details: data1,
+      details: fullResponseData,
     });
   } catch (error) {
     return res.status(500).send({
@@ -627,6 +698,7 @@ const getDoctor = async (req, res) => {
     });
   }
 };
+
 
 
 //Update doctor profile
@@ -804,6 +876,70 @@ const profleView = async (req, res) => {
   }
 };
 
+
+//       doctor/getUsersWhoMessagedDoctor
+const getUsersWhoMessagedDoctor = async (req, res) => {
+  try {
+    const doctor = req.user; // middleware se
+
+    if (!doctor) {
+      return res.status(401).json({ success: 0, message: "Doctor not found from token" });
+    }
+
+    // Doctor ke chats le lo
+    const chats = await Chat.find({ doctorId: doctor._id }).lean();
+
+    if (!chats.length) {
+      return res.status(404).json({ success: 0, message: "No chats found for this doctor" });
+    }
+
+    // User details ka array
+    const userDetails = [];
+
+    // Loop through chats
+    for (const chat of chats) {
+      if (!chat.messages || chat.messages.length === 0) continue;
+
+      // Last message
+      const lastMessage = chat.messages[chat.messages.length - 1];
+
+      // User details
+      const user = await User.findById(chat.userId).select("name image regId");
+
+      if (!user) continue;
+
+      userDetails.push({
+        userId: user._id,
+        name: user.name,
+        image: user.image,
+        regId: user.regId || null,
+        channelId: chat.channelId || null,
+        lastMessage: {
+          text: lastMessage.text || lastMessage.message || "",
+          senderId: lastMessage.senderId,
+          time: lastMessage.time || lastMessage.createdAt || null,
+          from: lastMessage.senderId.toString() === doctor._id.toString() ? "doctor" : "user"
+        }
+      });
+    }
+
+    return res.status(200).json({
+      success: 1,
+      message: "Users who messaged or received messages from doctor",
+      data: userDetails
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: 0,
+      message: error.message
+    });
+  }
+};
+
+
+
+
   module.exports = {
     addDocter,
     docterList,
@@ -820,4 +956,6 @@ const profleView = async (req, res) => {
     getDoctor,
     updateDoctor,
     changePassword,
+    getUsersWhoMessagedDoctor
+
   };

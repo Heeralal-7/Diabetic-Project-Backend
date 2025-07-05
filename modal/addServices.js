@@ -1,132 +1,41 @@
-const { Schema, model } = require("mongoose");
-
-const servicesSchema = Schema(
+const mongoose = require("mongoose");
+ 
+const serviceSchema = new mongoose.Schema(
   {
-    // onstatus only 3
-    // 0 = on hold
-    // 1 = approved
-    // 2 = rejected
-    onStatus: {
-      type: String,
-      default: "0",
-    },
-
-    categoryName: {
-      type: String,
-      // enum: ["Allopathy", "Ayurvedic", "Prescription"],
-      default: "",
-    },
-   
-    name: {
-      type: String,
-      default: "",
-    },
-    manufacturers: {
-      type: String,
-      default: "",
-    },
-    saltComposition: {
-      type: String,
-      default: "",
-    },
-    packaging: {
-      type: String,
-      default: "",
-    },
-    primaryUse: {
-      type: String,
-      default: "",
-    },
-    description: {
-      type: String,
-      default: "",
-    },
-    saltSynonyms: {
-      type: String,
-      default: "",
-    },
-    storage: {
-      type: String,
-      default: "",
-    },
-    introduction: {
-      type: String,
-      default: "",
-    },
-    useOf: {
-      type: String,
-      default: "",
-    },
-    benefits: {
-      type: String,
-      default: "",
-    },
-    sideEffects: {
-      type: String,
-      default: "",
-    },
-    howToUse: {
-      type: String,
-      default: "",
-    },
-    howItWorks: {
-      type: String,
-      default: "",
-    },
-    safetyAdvice: {
-      type: String,
-      default: "",
-    },
-    ifMissed: {
-      type: String,
-      default: "",
-    },
-    alternativeAddress: {
-      type: String,
-      default: "",
-    },
-    manufacturingAddress: {
-      type: String,
-      default: "",
-    },
-    medicineType: {
-      type: String,
-      default: "",
-    },
-    quantity: {
-      type: String,
-      default: "",
-    },
-    price: {
-      type: String,
-      default: "",
-    },
-    bestPrice: {
-      type: String,
-      default: "",
-    },
-    discountPercentage: {
-      type: String,
-      default: "",
-    },
-    photo: {
-      type: [String],
-      default: [],
-    },
-    status: {
-      type: String,
-      default: "0",
-    },
-    prescription: {
-      type: Boolean,
-      default: false,
-    },
-    vendorId: {
-      type: Schema.Types.ObjectId,
-      ref: "vandor",
-    },
+    categoryName: { type: String, required: true },
+    name: { type: String, required: true },
+    manufacturers: { type: String, required: true },
+    saltComposition: { type: String, required: true },
+    packaging: { type: String, required: true },
+    primaryUse: { type: String, required: true },
+    description: { type: String, required: true },
+    saltSynonyms: { type: String, required: true },
+    storage: { type: String, required: true },
+    introduction: { type: String, required: true },
+    useOf: { type: String, required: true },
+    benefits: { type: String, required: true },
+    sideEffects: { type: String, required: true },
+    howToUse: { type: String, required: true },
+    howItWorks: { type: String, required: true },
+    safetyAdvice: { type: String, required: true },
+    ifMissed: { type: String, required: true },
+    alternativeAddress: { type: String, required: true },
+    manufacturingAddress: { type: String, required: true },
+    medicineType: { type: String, required: true },
+    stock: { type: Number, required: true },
+    mrp: { type: Number, required: true },
+    bestPrice: { type: Number, required: true },
+    discountPercentage: { type: Number, required: true },
+    prescription: { type: Boolean, required: true },
+    vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", required: true },
+    photo: [{ type: String }],
+    onStatus: { type: String, enum: ["0", "1"], default: "0" },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
-
-module.exports = new model("Services", servicesSchema);
+ 
+module.exports = mongoose.model("Service", serviceSchema);
+ 
+ 

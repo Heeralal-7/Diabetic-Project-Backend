@@ -143,7 +143,16 @@ const User = Schema(
     partnerCode:{
       type:String,
       default:""
+    },
+    regId: {
+      type: String,
+      default: "",
+    },
+    chatStatus:{
+      type:String,
+      default:""
     }
+    
   },
   {
     timestamps: true,

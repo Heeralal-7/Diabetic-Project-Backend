@@ -82,7 +82,11 @@ const documentsSchema = Schema(
       of: String, // e.g., { "panCardStatus": "Not clear", "aadharCardStatus": "Invalid doc" }
       default: {},
     },
- 
+    ClinicId: {
+      type: Schema.Types.ObjectId,
+      ref: "Clinic",
+      default: null,
+    },
   },
   { timestamps: true }
 );

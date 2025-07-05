@@ -150,7 +150,7 @@ const getStartAndEndDate = async (req, res) => {
   try {
     const findAllDates = await Availability.find({
       vendorId: req.user._id,
-    }).select("startDate endDate");
+    }).select("startDate endDate day startTime endTime");
 
     if (!findAllDates) {
       return res.send({

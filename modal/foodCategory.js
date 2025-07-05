@@ -12,6 +12,10 @@ const foodCategorySchema = Schema({
     foodImage:{
         type:String,
         default:""
+    },
+    calorie :{
+        type:String,
+        default:""
     }
 },{timestamps:true})
 

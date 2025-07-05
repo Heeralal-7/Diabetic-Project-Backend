@@ -1,6 +1,6 @@
 const Doctor = require("../../../../modal/docter");
 const Rating = require("../../../../modal/rating");
-
+ const Chat = require("../../../../modal/chat")
 // const doctorRating = async (doctorId) => {
 //   try {
 //     const isExist = await Rating.find({ doctorId })
@@ -101,7 +101,7 @@ const getAllDoctor = async (req, res) => {
               input: "$ratings",
               as: "rating",
               in: {
-                rating: { $toInt: "$$rating.rating" },
+                rating: { $toDouble: "$$rating.rating" },
               },
             },
           },
@@ -118,14 +118,14 @@ const getAllDoctor = async (req, res) => {
           rating: {
             $cond: {
               if: { $gt: ["$ratingCount", 0] },
-              then: { $ceil: { $divide: ["$ratingSum", "$ratingCount"] } },
+              then: { $round: [{ $divide: ["$ratingSum", "$ratingCount"] }, 1] },
               else: 0,
             },
           },
         },
       },
 
-      // Join consultationfees
+      // Join consultation fees
       {
         $lookup: {
           from: "consultationfees",
@@ -135,11 +135,18 @@ const getAllDoctor = async (req, res) => {
         },
       },
       {
+        $addFields: {
+          ConsultationFeesId: { $arrayElemAt: ["$consultationFees", 0] },
+        },
+      },
+
+      {
         $project: {
           ratings: 0,
           phnOtp: 0,
           ratingSum: 0,
           ratingCount: 0,
+          consultationFees: 0, // remove raw array
         },
       },
       { $skip: skip },
@@ -165,6 +172,8 @@ const getAllDoctor = async (req, res) => {
     });
   }
 };
+
+
 
 
 // Get single Doctor by their id
@@ -193,4 +202,65 @@ const getSingleDoctor = async (req, res) => {
   }
 };
 
-module.exports = { getAllDoctor, getSingleDoctor };
+// /user-doctor/getDoctor
+const getDoctor = async (req, res) => {
+  try {
+    const user = req.user; // from middleware
+
+    if (!user) {
+      return res.status(401).json({ success: 0, message: "User not found from token" });
+    }
+
+    // Get all chats for this user
+    const chats = await Chat.find({ userId: user._id }).lean();
+
+    if (!chats || chats.length === 0) {
+      return res.status(404).json({ success: 0, message: "No chat found for this user" });
+    }
+
+    const doctorDetails = [];
+
+    for (const chat of chats) {
+      if (!chat.messages || chat.messages.length === 0) continue;
+
+      // Find last message in this chat
+      const lastMessage = chat.messages[chat.messages.length - 1];
+
+      // Get doctor info including regId
+      const doctor = await Doctor.findById(chat.doctorId).select("name image regId");
+
+      if (!doctor) continue;
+
+      doctorDetails.push({
+        doctorId: doctor._id,
+        name: doctor.name,
+        image: doctor.image,
+        regId: doctor.regId || null,
+        channelId: chat.channelId || null,
+        lastMessage: {
+          text: lastMessage.text || lastMessage.message || "",
+          senderId: lastMessage.senderId,
+          time: lastMessage.time || lastMessage.createdAt || null,
+          from: lastMessage.senderId.toString() === doctor._id.toString() ? "doctor" : "user"
+        }
+      });
+    }
+
+    return res.status(200).json({
+      success: 1,
+      message: "Doctors who sent or received messages",
+      data: doctorDetails
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: 0,
+      message: error.message
+    });
+  }
+};
+
+
+
+module.exports = { getAllDoctor, getSingleDoctor, getDoctor };
+  

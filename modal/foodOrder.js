@@ -98,7 +98,11 @@ const foodOrderSchema = new Schema(
     rejectionReason: {
       type: String,
       default: null,
-    }
+    },
+    foodId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Food",
+    },
 
   },
   { timestamps: true }
