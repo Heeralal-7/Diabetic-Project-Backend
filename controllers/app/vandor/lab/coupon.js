@@ -29,7 +29,7 @@ const checkCoupon = async (userId) => {
 
 // Create coupon
 // Method:Get
-// EndPoints:
+// EndPoints: /coupon/create
 const createCoupon = async (req, res) => {
   try {
     const {
@@ -84,7 +84,7 @@ const createCoupon = async (req, res) => {
 
 // Get All coupon of vendor
 // Method:Get
-// EndPoints:
+// EndPoints: /coupon
 const getCouponOfVendor = async (req, res) => {
   try {
     const { status } = req.query;
@@ -116,7 +116,7 @@ const getCouponOfVendor = async (req, res) => {
 
 // Get all coupon according to status
 // Method:get
-// Endpoints:
+// Endpoints: /coupon/coupon-status
 // Status 1 for ongoing and 2 for close
 const acceptCloseCoupon = async (req, res) => {
   try {
@@ -144,6 +144,41 @@ const acceptCloseCoupon = async (req, res) => {
   }
 };
 
+// Delete coupon
+// Method: Delete
+// EndPoints: /coupon/delete/:id
+const deleteCoupon = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if coupon exists and belongs to the requesting vendor
+    const coupon = await Coupon.findOne({
+      _id: id,
+      vendorId: req.user._id
+    });
+    
+    if (!coupon) {
+      return res.send({
+        success: 0,
+        message: "Coupon not found or you don't have permission to delete it"
+      });
+    }
+    
+    // Delete the coupon
+    await Coupon.findByIdAndDelete(id);
+    
+    return res.send({
+      success: 1,
+      message: "Coupon deleted successfully"
+    });
+    
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message
+    });
+  }
+};
 
 
-module.exports = { createCoupon, getCouponOfVendor, acceptCloseCoupon };
+module.exports = { createCoupon, getCouponOfVendor, acceptCloseCoupon,deleteCoupon };

@@ -86,6 +86,7 @@ const updatePatientAddress = async (req, res) => {
         address,
         state,
         city,
+        pic: req.file ? `/user/lab/pic/${req.file.filename}` : "",
         pinCode,
       },
       { new: true }

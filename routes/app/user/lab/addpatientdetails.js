@@ -26,7 +26,7 @@ const upload = multer({ storage: storage });
 
 route.post("/new", upload.single("pic"), middlewere, addpatient);
 route.get("/fetch", middlewere, getPatient);
-route.put("/update/:id", middlewere, updatePatientAddress);
+route.put("/update/:id", upload.single("pic"), middlewere, updatePatientAddress);
 route.delete("/delete/:id", middlewere, deletePatientAddress);
 
 module.exports = route;

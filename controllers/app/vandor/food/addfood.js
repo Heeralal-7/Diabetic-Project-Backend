@@ -1,5 +1,6 @@
 const Food = require("../../../../modal/addFood");
 const FoodCategories = require("../../../../modal/foodCategory");
+const Meal = require("../../../../modal/MealTime");
 
 //Create new food
 //Method:Post
@@ -371,6 +372,33 @@ const getfoodSubcategory = async (req, res) => {
   }
 };
 
+// Get all meals
+// Method: Get
+// Endpoint: /food/getmeals
+const getMeals = async(req,res) => {
+  try {
+    
+    const data = await Meal.find({});
+    if(!data || data.length === 0) { //Se ha añadido la comprobación de la longitud para mayor robustez
+      return res.send({
+        success:0,
+        message:"no data found"
+      })
+    }
+    return res.send({
+      success:1,
+      message:"data found",
+      details:data
+    })
+  
+  } catch (error) {
+    return res.send({
+      success:0,
+      message:error.message
+    })
+  }
+}
+
 module.exports = {
   createFood,
   getFood,
@@ -380,4 +408,5 @@ module.exports = {
   getremoveddata,
   getfoodcategory,
   getfoodSubcategory,
+  getMeals,
 };

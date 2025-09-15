@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const { middlewere } = require("../../../../middleware/auth");
-const { shopsNear, getAvailableProducts,getVendorsByProduct,addToCart,checkCartVendorConflict,getCartByUser,removeCartItem,checkout,confirmOrder,updateCartQuantity,getAvailableMedicines,getVendorsByMedicine,getVendoravailability,getOrderHistory,getVendorProducts,getVendorMedicines,trackOrder, getPopularProducts, getPopularMedicines } = require("../../../../controllers/app/user/pharmacy/nearShops");
+const { shopsNear, getAvailableProducts,getVendorsByProduct,addToCart,checkCartVendorConflict,getCartByUser,removeCartItem,checkout,confirmOrder,updateCartQuantity,getAvailableMedicines,getVendorsByMedicine,getVendoravailability,getOrderHistory,getVendorProducts,getVendorMedicines,trackOrder, getPopularProducts, getPopularMedicines, clearCart } = require("../../../../controllers/app/user/pharmacy/nearShops");
  
 const route = Router()
  
@@ -33,6 +33,7 @@ route.get("/vendor/medicines", middlewere, getVendorMedicines)
  
  route.get("/popularProducts", middlewere, getPopularProducts)
  route.get("/medicine/popularMedicines", middlewere, getPopularMedicines)
+route.delete("/clearCart", middlewere, clearCart);
  
  
  

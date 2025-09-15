@@ -9,7 +9,7 @@ const pharmacyProductsSchema = new mongoose.Schema(
     },
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor", // Vendor model को रेफर करेगा
+      ref: "vandor", // Vendor model को रेफर करेगा
       required: true,
     },
     stock: {
@@ -31,6 +31,14 @@ const pharmacyProductsSchema = new mongoose.Schema(
     isAvailable: {
       type: Boolean,
       default: true,
+    },
+    latitude: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "vandor",
+    },
+    longitude: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "vandor",
     },
   },
   { timestamps: true }

@@ -183,6 +183,7 @@ const editTest = async (req, res) => {
       sampleRequired,
       sampleCollected,
       amount,
+      discountPercentage,
     } = req.body;
     const { id } = req.params;
     const vendor = await Vendor.findById(req.user._id);
@@ -203,6 +204,7 @@ const editTest = async (req, res) => {
         sampleRequired,
         sampleCollected,
         amount,
+        discountPercentage,
       },
       { new: true }
     );
@@ -245,12 +247,28 @@ const updateTest = async (req, res) => {
 const updatestatus = async (req, res) => {
   try {
     const { id } = req.params;
+    const { status } = req.body; // Get the status from the request body
+
+    // Validate if status is provided
+    if (status === undefined || status === null) {
+      return res.status(400).send({
+        success: 0,
+        message: "Status is required in the request body.",
+      });
+    }
 
     const data = await Addtest.findByIdAndUpdate(
       id,
-      { status: 1 },
+      { status: status }, // Use the provided status value
       { new: true }
     );
+
+    if (!data) {
+      return res.status(404).send({
+        success: 0,
+        message: "Record not found.",
+      });
+    }
 
     return res.send({
       success: 1,
@@ -258,7 +276,7 @@ const updatestatus = async (req, res) => {
       data,
     });
   } catch (error) {
-    return res.send({
+    return res.status(500).send({ // Send appropriate status code for server errors
       success: 0,
       message: error.message,
     });

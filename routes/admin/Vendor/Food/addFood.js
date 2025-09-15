@@ -1,5 +1,5 @@
 const {Router} = require('express')
-const { createCategory, getFoodVendorsLists, inactivefood, getfoodstatus,addMeal, getMeal } = require('../../../../controllers/admin/Vendor/Food/addFood')
+const { createCategory, getFoodVendorsLists, inactivefood, getfoodstatus,addMeal, getMeal, getCategory } = require('../../../../controllers/admin/Vendor/Food/addFood')
 const multer = require('multer');
 
 const route = Router()
@@ -44,4 +44,5 @@ route.get("/inactivefood",inactivefood)
 route.get("/getfoodstatus",getfoodstatus)
 route.post("/addmeal", upload1.single("MealImage"),addMeal)
 route.get("/getmeal", getMeal)
+route.get("/getcategory", getCategory)
 module.exports = route

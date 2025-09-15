@@ -76,23 +76,39 @@ const particularfood = async (req, res) => {
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 5);
 
-    const query = { vendorId: id };
+    const query = { vendorId: id, status: "0" }; // <--- यहाँ status: "0" फ़िल्टर जोड़ा गया है
 
     if (foodCategory) {
       query.foodCategory = foodCategory;
     }
 
     const data = await Food.find(query)
+      .populate('vendorId', 'name') // <--- यहाँ vendorId को पॉपुलेट किया गया है
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum);
 
-    if (data) {
+    if (!data || data.length === 0) { // डेटा न मिलने पर भी स्पष्ट संदेश दें
       return res.send({
-        success: 1,
-        message: "Fetched successfully",
-        details: data,
+        success: 0,
+        message: "No items found for this vendor or category",
       });
     }
+
+    // अब data को मैप करें ताकि vendorId को सीधे vendorName से बदल सकें
+    const itemsWithVendorName = data.map(item => {
+      const itemObject = item.toObject(); // Mongoose डॉक्यूमेंट को प्लेन JavaScript ऑब्जेक्ट में बदलें
+      if (itemObject.vendorId && typeof itemObject.vendorId === 'object') {
+        itemObject.vendorName = itemObject.vendorId.name; // वेंडर का नाम जोड़ें
+        itemObject.vendorId = itemObject.vendorId._id; // vendorId को सिर्फ उसकी ID पर वापस सेट करें
+      }
+      return itemObject;
+    });
+
+    return res.send({
+      success: 1,
+      message: "Fetched successfully",
+      details: itemsWithVendorName, // संशोधित आइटम्स भेजें
+    });
   } catch (error) {
     return res.send({
       success: 0,

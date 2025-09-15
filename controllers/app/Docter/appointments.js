@@ -279,6 +279,7 @@ const acceptOrRejctAppointment = async (req, res) => {
 const addPrescribe = async (req, res) => {
   try {
     const {
+      appointmentId,
       adviceInvestigation,
       anyAdvice,
       specialInstruction,
@@ -337,7 +338,7 @@ const addPrescribe = async (req, res) => {
       afternoon,
       evening,
       days,
-      appointmentId: req.user._id,
+      appointmentId: appointmentId,
     });
     await Appointment.findByIdAndUpdate(appointmentId, {
       prescribe: createPrescribe._id,

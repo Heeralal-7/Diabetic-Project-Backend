@@ -125,6 +125,22 @@ const VendorSchema = new Schema(
       type: String,
       default: "",
     },
+    description: {
+      type: String,
+      default: "",
+    },
+    latitude: {
+      type: String,
+      default: "",
+    },
+    longitude: {
+      type: String,
+      default: "",
+    },
+    description: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

@@ -15,6 +15,7 @@ const getParticularFood = async (req, res) => {
 
     const data = await Food.find({
       foodName: food,
+      status: "0",
       $expr: {
         $lt: [
           {
@@ -29,6 +30,7 @@ const getParticularFood = async (req, res) => {
         ]
       }
     })
+    .populate('vendorId', 'name') 
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum);
 
@@ -38,11 +40,20 @@ const getParticularFood = async (req, res) => {
         message: "No items found",
       });
     }
+     const itemsWithVendorName = data.map(item => {
+      const itemObject = item.toObject(); // Mongoose डॉक्यूमेंट को प्लेन JavaScript ऑब्जेक्ट में बदलें
+      if (itemObject.vendorId && typeof itemObject.vendorId === 'object') {
+        itemObject.vendorName = itemObject.vendorId.name; // वेंडर का नाम जोड़ें
+        itemObject.vendorId = itemObject.vendorId._id; // vendorId को सिर्फ उसकी ID पर वापस सेट करें
+      }
+      return itemObject;
+    });
+
 
     return res.send({
       success: 1,
       message: "Fetched successfully",
-      details: data,
+      details: itemsWithVendorName,
     });
   } catch (error) {
     return res.send({
@@ -253,13 +264,22 @@ const addExtraItems = async (req, res) => {
 //Endpoint: /craving/getcart
 const getCartData = async (req, res) => {
   try {
-    const data = await Cart.find({ userId: req.user._id }).populate("FoodItem");
+    // FoodItem को पॉपुलेट करते समय, उसके अंदर के vendorId को भी पॉपुलेट करें और उसका 'name' फ़ील्ड लें।
+    const data = await Cart.find({ userId: req.user._id })
+      .populate({
+        path: "FoodItem",
+        populate: {
+          path: "vendorId",
+          select: "name" // सिर्फ vendor का नाम चाहिए
+        }
+      });
 
     let totalFoodPrice = 0;
     let totalAddonsPrice = 0;
     let totalPrice = 0;
 
     const cartIds = [];
+    const processedCartDetails = []; // नया एरे जिसमें vendorName के साथ डिटेल्स होंगी
 
     data.forEach((item) => {
       if (!item.FoodItem) {
@@ -267,7 +287,7 @@ const getCartData = async (req, res) => {
         return;
       }
 
-      cartIds.push(item._id); // ✅ Collect cart ID
+      cartIds.push(item._id);
 
       const foodPrice = parseFloat(item.FoodItem.amount) || 0;
       const discountPercentage = parseFloat(item.FoodItem.discountPercentage) || 0;
@@ -284,6 +304,14 @@ const getCartData = async (req, res) => {
       }
 
       totalAddonsPrice += extraItemsPrice * quantity;
+
+      // FoodItem के अंदर vendorName जोड़ें और vendorId को सिर्फ ID पर सेट करें
+      const itemObject = item.toObject(); // Cart item को ऑब्जेक्ट में बदलें
+      if (itemObject.FoodItem && itemObject.FoodItem.vendorId && typeof itemObject.FoodItem.vendorId === 'object') {
+        itemObject.FoodItem.vendorName = itemObject.FoodItem.vendorId.name;
+        itemObject.FoodItem.vendorId = itemObject.FoodItem.vendorId._id;
+      }
+      processedCartDetails.push(itemObject); // संशोधित आइटम को नए एरे में जोड़ें
     });
 
     totalPrice = totalFoodPrice + totalAddonsPrice;
@@ -291,8 +319,8 @@ const getCartData = async (req, res) => {
     return res.send({
       success: 1,
       message: "Fetched successfully",
-      cartIds, // ✅ New field with cart item IDs
-      details: data,
+      cartIds,
+      details: processedCartDetails, // संशोधित कार्ट डिटेल्स भेजें
       totalFoodPrice: totalFoodPrice.toFixed(2),
       totalAddonsPrice: totalAddonsPrice.toFixed(2),
       totalPrice: totalPrice.toFixed(2),
@@ -462,7 +490,7 @@ const replaceItem = async (req, res) => {
 };
 
 
-//craving/getMeal
+//craving/getMeal  // filter status = 0 only, (status 1 for remove food by vendor)
 // Method: GET
 // Endpoint: /craving/getMeal
 const getMeal = async (req, res) => {
@@ -470,12 +498,22 @@ const getMeal = async (req, res) => {
     const id = req.body.id || req.query.id; // body ya query dono me se id le lo
  
     // Find all food items with this MealId
-    const data = await Food.find({ MealId: id });
+    const data = await Food.find({ MealId: id }).populate('vendorId', 'name');
+
+    const filteredData = data.filter(item => item.status === "0");
+    const itemsWithVendorName = filteredData.map(item => {
+      const itemObject = item.toObject(); // Mongoose डॉक्यूमेंट को प्लेन JavaScript ऑब्जेक्ट में बदलें
+      if (itemObject.vendorId && typeof itemObject.vendorId === 'object') {
+        itemObject.vendorName = itemObject.vendorId.name; // वेंडर का नाम जोड़ें
+        itemObject.vendorId = itemObject.vendorId._id; // vendorId को सिर्फ उसकी ID पर वापस सेट करें
+      }
+      return itemObject;
+    });
  
     return res.send({
       success: 1,
       message: "Items fetched successfully",
-      items: data
+      items: itemsWithVendorName
     });
   } catch (error) {
     return res.send({

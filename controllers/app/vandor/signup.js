@@ -11,7 +11,7 @@ const fs = require("fs");
 
 // Otp Sent to Vendor Email
 // Method:Post
-// EndPoint:/email-otp-sent
+// EndPoint:/vendor/email-otp-sent
 const otpSentToVendor = async (req, res) => {
   try {
     const { email } = req.body;
@@ -52,7 +52,7 @@ const otpSentToVendor = async (req, res) => {
 
 // Verify Sent To Phone
 // Method:Post
-// EndPoint:/phone-otp-sent
+// EndPoint:/vendor/phone-otp-sent
 const otpSentToPhone = async (req, res) => {
   try {
     const { phone, ctrcode } = req.body;
@@ -153,7 +153,7 @@ const verifyForgotOtp = async (req, res) => {
 
 // Verify mail with otp
 // Method:Post
-// EndPoint:/register
+// EndPoint:/vendor/register
 const verifyEmailOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -282,7 +282,7 @@ const register = async (req, res) => {
 
 // Login vandor
 // Method:Post
-// EndPoint:/login
+// EndPoint:/vendor/login
 // status 0  - user is blocked and status 1 - user is unblocked(initially)
 const loginVendor = async (req, res) => {
   try {
@@ -343,6 +343,7 @@ const loginVendor = async (req, res) => {
       success: 1,
       details: {
         token: token,
+        vendorId: vendor._id,
       },
     });
   } catch (error) {
@@ -353,11 +354,44 @@ const loginVendor = async (req, res) => {
     });
   }
 };
+// Forget password
+const otpForForget = async (req, res) => {
+  try {
+    const { countryCode, phone } = req.body;
+    const exist = await Vendor.findOne({
+      $and: [{ phone }, { ctrcode: countryCode }, { verify: true }],
+    });
+    if (!exist) {
+      return res.send({ success: 0, message: "Invalid credentials" });
+    }
+    // const otpD = Math.floor(1000 + Math.random() * 9000);
+    const otpD = 1111;
+    // const sentotp = await Vendor.findOneAndUpdate(
+    //   { phone: phone },
+    //   { phnOtp: otpD },
+    //   { new: true }
+    // ).select("phnOtp");
+    const sentotp = await exist
+      .updateOne({ phnOtp: otpD }, { new: true })
+      .select("phnOtp");
 
+    return res.send({
+      success: 1,
+      message: "OTP sent to your phone number",
+    });
+  } catch (error) {
+    // console.log(error)
+    return res.send({
+      message: "Something went wrong",
+      success: 0,
+      error: error.message,
+    });
+  }
+};
 
 // Get Vendor Profile
 // Method:Patch
-// EndPoint:/updateprofile
+// EndPoint:/vendor/updateprofile
 const getVendorProfile = async (req, res) => {
   try {
     const isVendorProfile = await Vendor.findById(req.user._id)
@@ -388,7 +422,7 @@ const getVendorProfile = async (req, res) => {
 
 // Update Vendor Profile
 // Method:Patch
-// EndPoint:/updateprofile
+// EndPoint:/vendor/profile
 const updateVendorProfile = async (req, res) => {
   try {
     const id = req.user._id;
@@ -463,43 +497,9 @@ const updateVendorProfile = async (req, res) => {
     });
   }
 };
-
-// Forget password
-const otpForForget = async (req, res) => {
-  try {
-    const { countryCode, phone } = req.body;
-    const exist = await Vendor.findOne({
-      $and: [{ phone }, { ctrcode: countryCode }, { verify: true }],
-    });
-    if (!exist) {
-      return res.send({ success: 0, message: "Invalid credentials" });
-    }
-    // const otpD = Math.floor(1000 + Math.random() * 9000);
-    const otpD = 1111;
-    // const sentotp = await Vendor.findOneAndUpdate(
-    //   { phone: phone },
-    //   { phnOtp: otpD },
-    //   { new: true }
-    // ).select("phnOtp");
-    const sentotp = await exist
-      .updateOne({ phnOtp: otpD }, { new: true })
-      .select("phnOtp");
-
-    return res.send({
-      success: 1,
-      message: "OTP sent to your phone number",
-    });
-  } catch (error) {
-    // console.log(error)
-    return res.send({
-      message: "Something went wrong",
-      success: 0,
-      error: error.message,
-    });
-  }
-};
-
 // Enter new password
+// Method:Post
+// EndPoint:/vendor/change-password
 const changePassword = async (req, res) => {
   try {
     const { oldpassword, password, confirmpassword } = req.body;
@@ -548,6 +548,9 @@ const changePassword = async (req, res) => {
     });
   }
 };
+
+
+
 
 //reset password
 const resetPassword = async (req, res) => {

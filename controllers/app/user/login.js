@@ -140,6 +140,8 @@ const verifyUser = async (req, res) => {
         details: {
           token: updatedUser.token,
           regId: updatedUser.regId,
+          userId: updatedUser._id,
+          name: updatedUser.name || "",
         },
       });
     } else {

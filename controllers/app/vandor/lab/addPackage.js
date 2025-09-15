@@ -160,12 +160,12 @@ const deletePackage = async (req, res) => {
 
 // Update Packages
 // Method: Patch
-// EndPoint:/package/update
+// EndPoint:/package
 // Query: packageId
 const updatePackage = async (req, res) => {
   try {
     const { packageId } = req.query;
-    const { packageName, description, precautions, testType, addTest, amount } =
+    const { packageName, description, precautions, testType, addTest, amount, discountPercentage } =
       req.body;
     const findPackage = await AddPackage.findOne({ _id: packageId });
     if (!findPackage) {
@@ -184,7 +184,7 @@ const updatePackage = async (req, res) => {
       // sampleCollected,
       addTest,
       amount,
-      // discountPercentage,
+      discountPercentage,
     });
     return res.send({
       success: 1,
@@ -205,8 +205,27 @@ const updatePackage = async (req, res) => {
 const updatePackageStatus = async (req, res) => {
   try {
     const { id } = req.params;
+    const { status } = req.body; // Get the status from the request body
 
-    await AddPackage.findByIdAndUpdate(id, { status: 1 }, { new: true });
+    // Validate if status is provided
+    if (status === undefined) {
+      return res.status(400).send({
+        success: 0,
+        message: "Status is required in the request body.",
+      });
+    }
+
+    // You can add more validation here for the status, e.g., if it should be a number, within a specific range, etc.
+    // For example:
+    // if (typeof status !== 'number' || status < 0 || status > 10) {
+    //   return res.status(400).send({
+    //     success: 0,
+    //     message: "Invalid status value.",
+    //   });
+    // }
+
+    await AddPackage.findByIdAndUpdate(id, { status: status }, { new: true }); // Use the dynamic status
+
     return res.send({
       success: 1,
       message: "Package updated successfully",

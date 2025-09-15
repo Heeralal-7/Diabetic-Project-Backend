@@ -47,6 +47,7 @@ app.use("/admin-user" , require("./routes/admin/User/user"))
 app.use("/admin-food" , require("./routes/admin/Vendor/Food/addFood"))
 app.use("/doctorAccess", require("./routes/admin/Doctor/doctorAccess"));
 app.use("/admin-medicine", require("./routes/admin/Vendor/Pharmacy/Medicine")); // upload medicine
+app.use("/admin-delivery-charges", require("./routes/admin/Vendor/Pharmacy/DeliveryCharges")); // delivery charges
 app.use("/upload-excel-hospital", require("./routes/admin/Vendor/Pharmacy/Products")); // upload hospital product
  
 ////////////    Admin Routes End    /////////////////////

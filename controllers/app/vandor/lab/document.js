@@ -2,7 +2,7 @@ const Document = require("../../../../modal/Document");
 
 // Update Docuements
 // Method : Post
-// EndPoints :/update
+// EndPoints : /vendor-document/update
 const mydocument = async (req, res) => {
   try {
     const isExist = await Document.findOne({ vendorId: req.user._id });
@@ -43,32 +43,32 @@ const mydocument = async (req, res) => {
  
     if (req.files.register) {
       updateData.registrationNo = `/vendor/registration/${req.files.register[0].filename}`;
-      updateData.registrationNoStatus = "1";
+      updateData.registrationNoStatus = "0";
     }
  
     if (req.files.licence) {
       updateData.licenceNo = `/vendor/licence/${req.files.licence[0].filename}`;
-      updateData.licenceNoStatus = "1";
+      updateData.licenceNoStatus = "0";
     }
  
     if (req.files.accreditation) {
       updateData.accreditation = `/vendor/accreditationCertificate/${req.files.accreditation[0].filename}`;
-      updateData.accreditationStatus = "1";
+      updateData.accreditationStatus = "0";
     }
  
     if (arr.length > 0) {
       updateData.aadharCard = arr;
-      updateData.aadharCardStatus = "1";
+      updateData.aadharCardStatus = "0";
     }
  
     if (arr1.length > 0) {
       updateData.panCard = arr1;
-      updateData.panCardStatus = "1";
+      updateData.panCardStatus = "0";
     }
  
     if (arr2.length > 0) {
       updateData.drivingLicence = arr2;
-      updateData.drivingLicenceStatus = "1";
+      updateData.drivingLicenceStatus = "0";
     }
  
     await isExist.updateOne(updateData);
@@ -87,7 +87,7 @@ const mydocument = async (req, res) => {
 
 // Get Vendors Docuements
 // Method : Get
-// EndPoints :/
+// EndPoints  /vendor-document
 const getVendorDocuments = async (req, res) => {
   try {
     const doc = await Document.find({ vendorId: req.user._id });

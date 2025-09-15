@@ -79,7 +79,7 @@ const storage1 = multer.diskStorage({
 const upload1 = multer({ storage: storage1 });
 
 route.patch(
-  "/update-driver",
+  "/update-driver/:id", 
   upload1.fields([
     { name: "image", maxCount: 1 },
     { name: "drivingLicence", maxCount: 1 },

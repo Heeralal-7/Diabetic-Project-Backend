@@ -85,7 +85,13 @@ const getOrder = async (req, res) => {
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
 
-    const data = await Order.find({ status })
+    // Extract vendorId from the authenticated token (assuming middleware has populated req.user.id)
+    const vendorId = req.user.id; // Make sure your auth middleware sets req.user.id
+
+    // Build the query object
+    const query = { status, vendorId: vendorId }; // Add vendorId to filter
+
+    const data = await Order.find(query) // Use the updated query object
       .populate("userId")
       .populate("items.FoodItem")
       .populate("vendorId", "name phoneNumber") // Populate vendor details
@@ -190,29 +196,17 @@ const getAcceptedOrders = async (req, res) => {
   try {
     const vendorId = req.user._id;
 
-    // Single-item orders
-    const singleItemOrders = await FoodOrder.find({
+    // Fetch all accepted orders for the vendor
+    const acceptedOrders = await FoodOrder.find({
       vendorId: vendorId,
-      status: "1",
-      items: { $size: 1 },
+      status: "1", // Assuming '1' means accepted
     })
       .populate("userId")
       .populate("items.FoodItem");
-
-    // Bulk orders
-    const bulkOrders = await FoodOrder.find({
-      vendorId: vendorId,
-      status: "1",
-      items: { $elemMatch: { quantity: { $gt: 1 } } },
-    })
-      .populate("userId")
-      .populate("items.FoodItem");
-
-    const acceptedOrders = [...singleItemOrders, ...bulkOrders];
 
     return res.send({
       success: 1,
-      message: "Accepted orders (single & bulk) fetched successfully",
+      message: "Accepted orders fetched successfully",
       details: acceptedOrders,
       totalCount: acceptedOrders.length,
     });

@@ -1,6 +1,6 @@
 const {Router} = require('express')
 const { VendorMiddleware } = require('../../../../middleware/auth')
-const { createFood, getFood, updateStatus, editFood, searchFood, getremoveddata, getfoodcategory, getfoodSubcategory } = require('../../../../controllers/app/vandor/food/addfood')
+const { createFood, getFood, updateStatus, editFood, searchFood, getremoveddata, getfoodcategory, getfoodSubcategory, getMeals } = require('../../../../controllers/app/vandor/food/addfood')
 const multer = require('multer')
 
 
@@ -29,5 +29,6 @@ route.get('/search', VendorMiddleware , searchFood)
 route.get('/deleteStatus' , VendorMiddleware , getremoveddata)
 route.get('/getCategory'  , getfoodcategory)
 route.get('/getSubCategory' , VendorMiddleware , getfoodSubcategory)
+route.get('/getMeals' , VendorMiddleware , getMeals)
 
 module.exports = route

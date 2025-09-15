@@ -234,8 +234,57 @@ const getMeal = async(req,res) => {
   }
 }
 
+// end point: /admin-food/getcategory
+// method: get
+// get all unique food categories
+const getCategory = async (req, res) => {
+    try {
+        // Fetch all categories from the database
+        const data = await FoodCategory.find({});
+
+        // If no data is found, return a clear message
+        if (!data || data.length === 0) {
+            return res.send({
+                success: 0,
+                message: "No categories found",
+            });
+        }
+
+        // Create a map to filter unique categories by 'name'
+        const uniqueCategories = [];
+        const categoryMap = new Map();
+
+        data.forEach((category) => {
+            // If the category name has not been seen before, add it to the list
+            if (!categoryMap.has(category.name)) {
+                categoryMap.set(category.name, true); // Mark the name as seen
+                uniqueCategories.push({
+                    _id: category._id,
+                    name: category.name,
+                    foodImage: category.foodImage,
+                    category: category.category,
+                    calorie: category.calorie,
+                    createdAt: category.createdAt,
+                    updatedAt: category.updatedAt,
+                });
+            }
+        });
+
+        return res.send({
+            success: 1,
+            message: "Fetched successfully",
+            data: uniqueCategories, // Return only unique categories
+        });
+
+    } catch (error) {
+        return res.send({
+            success: 0,
+            message: error.message,
+        });
+    }
+};
 
 
 
 
-module.exports = {createCategory,getFoodVendorsLists,inactivefood,getfoodstatus, addMeal , getMeal}
+module.exports = {createCategory,getFoodVendorsLists,inactivefood,getfoodstatus, addMeal , getMeal,getCategory}
