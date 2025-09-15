@@ -4,6 +4,8 @@ const Admin = require("../modal/adminlogin");
 const Doctor = require("../modal/docter");
 const Vendor = require("../modal/vandor");
 const Driver = require("../modal/driver");
+const Clinic = require("../modal/clinic")
+
 const generateMiddleware = (model) => async (req, res, next) => {
   try {
     if (req.headers && req.headers.token) {
@@ -71,11 +73,12 @@ const adminMiddleware = generateMiddleware(Admin);
 const doctorMiddleware = generateMiddleware(Doctor);
 const VendorMiddleware = generateMiddleware1(Vendor);
 const driverMiddleware = generateMiddleware(Driver);
- 
+const ClinicMiddleware = generateMiddleware(Clinic);
 module.exports = {
   middlewere,
   adminMiddleware,
   doctorMiddleware,
   VendorMiddleware,
   driverMiddleware,
+  ClinicMiddleware
 };

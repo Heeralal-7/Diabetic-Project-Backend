@@ -8,6 +8,10 @@ const {
   getParticularAppointment,
   uploadReport,
   searchVendor,
+  getHomeCollection,
+  getOrderWithDrivers,
+  venorderHistory,
+  
 } = require("../../../../controllers/app/vandor/lab/appointment");
 const { VendorMiddleware } = require("../../../../middleware/auth");
 const multer = require("multer");
@@ -42,4 +46,8 @@ router.patch(
 router.patch("/up", updateDocumentStatus);
 router.patch("/assign", VendorMiddleware, assignDriverToAppointment);
 router.get("/search", VendorMiddleware, searchVendor);
+router.get("/getHomeCollection",VendorMiddleware,getHomeCollection)
+// router.post("/assignDriverToLabOrder",VendorMiddleware,assignDriverToLabOrder)
+router.get("/getOrderWithDriver",getOrderWithDrivers)
+router.get("/venorderHistory",VendorMiddleware,venorderHistory)
 module.exports = router;

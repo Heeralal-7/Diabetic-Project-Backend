@@ -187,7 +187,7 @@ const register = async (req, res) => {
       state,
       country,
       altphnctrcode,
-      name,
+      name, 
       phone,
       password,
       altrphone,
@@ -195,25 +195,26 @@ const register = async (req, res) => {
       email,
       latitude,
       longitude,
-    
     } = req.body;
- 
 
+    // Validate required fields
+    if (
+      !name || !email || !phone || !password || !vendor || !business ||
+      !country || !state || !city || !latitude || !longitude
+    ) {
+      return res.json({
+        success: 0,
+        message: "Please enter all required fields",
+      });
+    }
 
-    console.log(req.files)
-
+    // Check if vendor already exists
     const isExist = await Vendor.findOne({ email });
     if (isExist && isExist.verify === true) {
       if (req.files) {
-        if (req.files.image) {
-          fs.unlinkSync(req.files.image[0].path);
-        }
-        if (req.files.register) {
-          fs.unlinkSync(req.files.register[0].path);
-        }
-        if (req.files.licence) {
-          fs.unlinkSync(req.files.licence[0].path);
-        }
+        if (req.files.image) fs.unlinkSync(req.files.image[0].path);
+        if (req.files.register) fs.unlinkSync(req.files.register[0].path);
+        if (req.files.licence) fs.unlinkSync(req.files.licence[0].path);
       }
       return res.json({
         success: 0,
@@ -221,20 +222,19 @@ const register = async (req, res) => {
       });
     }
 
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashPass = await bcrypt.hash(password, salt);
 
-    const registrationcert =
-      req.files.register &&
-      `/vendor/registration/${req.files.register[0].filename}`;
-    const licencenum =
-      req.files.licence && `/vendor/licence/${req.files.licence[0].filename}`;
-
+    // Handle file uploads
     const image =
-      req.files.image && `/vendor/avatar/${req.files.image[0].filename}`;
+      req.files?.image && `/vendor/avatar/${req.files.image[0].filename}`;
+    const registrationcert =
+      req.files?.register && `/vendor/registration/${req.files.register[0].filename}`;
+    const licencenum =
+      req.files?.licence && `/vendor/licence/${req.files.licence[0].filename}`;
 
- 
-
+    // Create vendor
     const vendorUpdate = await Vendor.create({
       name,
       email,
@@ -252,21 +252,23 @@ const register = async (req, res) => {
       verify: true,
       latitude,
       longitude,
-
+      location: {
+        type: "Point",
+        coordinates: [parseFloat(longitude), parseFloat(latitude)],
+      },
     });
 
+    // Create document
     const newdoc = await Document.create({
       registrationNo: registrationcert,
       licenceNo: licencenum,
       vendorId: vendorUpdate._id,
     });
 
-    await Vendor.findOneAndUpdate(
-      { _id: vendorUpdate._id },
-      {
-        myDocumentId: newdoc._id,
-      }
-    );
+    // Link document to vendor
+    await Vendor.findByIdAndUpdate(vendorUpdate._id, {
+      myDocumentId: newdoc._id,
+    });
 
     return res.json({
       success: 1,
@@ -286,9 +288,9 @@ const register = async (req, res) => {
 // status 0  - user is blocked and status 1 - user is unblocked(initially)
 const loginVendor = async (req, res) => {
   try {
-    const { email, password, type } = req.body;
+    const { email, password, type, latitude, longitude } = req.body;
 
-    // Check for required fields
+    // 1) Validate required fields
     if (!password || !email || !type) {
       return res.send({
         message: "Email and password are required along with vendor type",
@@ -296,7 +298,7 @@ const loginVendor = async (req, res) => {
       });
     }
 
-    // Find the vendor by email
+    // 2) Find vendor by email or phone
     const vendor = await Vendor.findOne({
       $or: [{ email }, { phone: email }],
     });
@@ -308,7 +310,7 @@ const loginVendor = async (req, res) => {
       });
     }
 
-    // Check if the vendor is blocked
+    // 3) Check if blocked
     if (vendor.isActive === false) {
       return res.send({
         message: "Login failed: Your account has been blocked",
@@ -316,7 +318,7 @@ const loginVendor = async (req, res) => {
       });
     }
 
-    // Check if the provided type matches the vendor's type
+    // 4) Check vendor type match
     if (type !== vendor.vendor) {
       return res.send({
         message: "Login failed: Vendor type mismatch",
@@ -324,9 +326,8 @@ const loginVendor = async (req, res) => {
       });
     }
 
-    // Validate the password
+    // 5) Validate password
     const isPasswordValid = await bcrypt.compare(password, vendor.password);
-
     if (!isPasswordValid) {
       return res.send({
         message: "Invalid password",
@@ -334,17 +335,35 @@ const loginVendor = async (req, res) => {
       });
     }
 
-    // Generate a JWT token
+    // 6) Generate JWT token
     const token = jwt.sign({ id: vendor._id }, secretkey);
-    await vendor.updateOne({ token });
 
+    // 7) Prepare update object with location
+    const updateData = {
+      token,
+    };
+
+    if (latitude && longitude) {
+      updateData.latitude = latitude;
+      updateData.longitude = longitude;
+      updateData.location = {
+        type: "Point",
+        coordinates: [parseFloat(longitude), parseFloat(latitude)],
+      };
+    }
+
+    // 8) Update vendor with token and location
+    await Vendor.findByIdAndUpdate(vendor._id, { $set: updateData }, { new: true });
+
+    // 9) Send success response
     return res.send({
       message: "Login successfully.",
       success: 1,
       details: {
-        token: token,
+        token,
       },
     });
+
   } catch (error) {
     return res.send({
       message: "Something went wrong",
@@ -353,6 +372,7 @@ const loginVendor = async (req, res) => {
     });
   }
 };
+
 
 
 // Get Vendor Profile

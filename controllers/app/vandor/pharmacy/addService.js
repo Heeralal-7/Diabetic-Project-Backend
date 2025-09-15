@@ -1,10 +1,11 @@
 const Service = require("../../../../modal/addServices");
 const Medicine = require("../../../../modal/MedicineSchema")
 const PharmacyMedicine = require("../../../../modal/VendorMedicine");
+const vendor = require("../../../../modal/vandor"); // Update path if needed
  
-//create service
-//Method:Post
-//Endpoints:/services/create
+// Create service
+// Method: POST
+// Endpoint: /services/create
 const addService = async (req, res) => {
   try {
     const {
@@ -28,13 +29,15 @@ const addService = async (req, res) => {
       alternativeAddress,
       manufacturingAddress,
       medicineType,
-      quantity,
-      price,
+      // quantity,
+      mrp,
       bestPrice,
       discountPercentage,
-      prescription,
+      stock
     } = req.body;
  
+    // Parse prescription as Boolean safely
+    const prescription = req.body.prescription === true || req.body.prescription === 'true';
  
     const requiredFields = {
       categoryName,
@@ -57,13 +60,14 @@ const addService = async (req, res) => {
       alternativeAddress,
       manufacturingAddress,
       medicineType,
-      quantity,
-      price,
+      // quantity,
+      mrp,
       bestPrice,
       discountPercentage,
-      prescription,
+      stock
     };
  
+    // Validate required fields
     for (const [key, value] of Object.entries(requiredFields)) {
       if (value === undefined || value === "") {
         return res.status(400).json({
@@ -73,11 +77,18 @@ const addService = async (req, res) => {
       }
     }
  
+    // Validate prescription presence explicitly
+    if (typeof prescription !== "boolean") {
+      return res.status(400).json({
+        success: 0,
+        message: "The field 'prescription' is required and must be true or false.",
+      });
+    }
  
+    // Handle image uploads
+    const photoPaths = req.files?.map((file) => `/vendor/photo/${file.filename}`) || [];
  
-    const photoPaths = req.files.map((file) => `/vendor/photo/${file.filename}`);
- 
-     
+    // Check vendor token
     if (!req.user || !req.user._id) {
       return res.status(401).json({
         success: 0,
@@ -85,7 +96,7 @@ const addService = async (req, res) => {
       });
     }
  
- 
+    // Create Service
     const data = await Service.create({
       categoryName,
       name,
@@ -107,13 +118,24 @@ const addService = async (req, res) => {
       alternativeAddress,
       manufacturingAddress,
       medicineType,
-      quantity,
-      price,
+      stock,
+      mrp,
       bestPrice,
       discountPercentage,
       photo: photoPaths,
       vendorId: req.user._id,
       prescription,
+      onStatus: "0",
+    });
+ 
+    // Add to PharmacyMedicine (temporary stock, pending approval)
+    await PharmacyMedicine.create({
+      medicineId: data._id,
+      vendorId: req.user._id,
+      stock: parseInt(stock),
+      discount_seller: parseInt(discountPercentage),
+      vendorPrice: bestPrice,
+      onStatus: "0"
     });
  
     return res.status(201).json({
@@ -131,6 +153,7 @@ const addService = async (req, res) => {
     });
   }
 };
+ 
  
 // Get medicine data uploaded from Excel
 // Method: GET
@@ -191,7 +214,6 @@ const updateStockAndDiscount = async (req, res) => {
       });
     }
  
-    // Get medicine base price
     const medicine = await Medicine.findById(medicineId);
     if (!medicine) {
       return res.status(404).json({
@@ -200,17 +222,17 @@ const updateStockAndDiscount = async (req, res) => {
       });
     }
  
-    const basePrice = parseFloat(medicine.best_price || "0");
+    const basePrice = parseFloat(medicine.mrp || "0"); // बेहतर होगा mrp ही use करें
     const discountAmount = (basePrice * discount_seller) / 100;
-    const updatedPrice = (basePrice - discountAmount).toFixed(2); // as string
+    const updatedPrice = (basePrice - discountAmount).toFixed(2);
  
-    // Save or update stock, discount_seller, and vendorPrice
     const updated = await PharmacyMedicine.findOneAndUpdate(
       { medicineId, vendorId: req.user._id },
       {
         stock,
         discount_seller,
         vendorPrice: updatedPrice,
+        onStatus: "1"  // यहाँ डिफॉल्ट स्टेटस 1 (approved) सेट कर दिया
       },
       { upsert: true, new: true }
     );
@@ -230,36 +252,51 @@ const updateStockAndDiscount = async (req, res) => {
   }
 };
  
+ 
 // Get medicines for a specific vendor (stock > 0)
 // Method: GET
-// Endpoint: /services/vendor/medicines
+// Endpoint: /services/vendor-medicine
+// Get medicines for a specific vendor (stock > 0)
+// Method: GET
+// Endpoint: /services/vendor-medicine
 const getVendorMedicines = async (req, res) => {
   try {
     if (!req.user || !req.user._id) {
-      return res.status(401).json({
-        success: 0,
-        message: "Unauthorized: Vendor token missing or invalid.",
-      });
+      return res.status(401).json({ success: 0, message: "Unauthorized" });
     }
  
-    // Step 1: Get vendor-specific medicines where stock > 0
+    // Step 1: Get all pharmacy medicine entries for this vendor
     const vendorMeds = await PharmacyMedicine.find({
       vendorId: req.user._id,
       stock: { $gt: 0 },
+      onStatus: "1",
     });
  
-    const medicineIds = vendorMeds.map((item) => item.medicineId);
-    const medicines = await Medicine.find({ _id: { $in: medicineIds } });
+    if (!vendorMeds || vendorMeds.length === 0) {
+      return res.status(200).json({
+        success: 1,
+        message: "No medicines found for this vendor",
+        totalCount: 0,
+        details: [],
+      });
+    }
  
+    // Separate medicineIds into two groups: those that exist in Service and those in Medicine
+    const medicineIds = vendorMeds.map((item) => item.medicineId);
+    const [serviceMeds, generalMeds] = await Promise.all([
+      Service.find({ _id: { $in: medicineIds } }),
+      Medicine.find({ _id: { $in: medicineIds } }),
+    ]);
+ 
+    // Create a map for vendorMeds for fast access
     const vendorMap = {};
     vendorMeds.forEach((item) => {
       vendorMap[item.medicineId.toString()] = item;
     });
  
-    const result = medicines.map((med) => {
+    const formattedServiceMeds = serviceMeds.map((med) => {
       const vendorEntry = vendorMap[med._id.toString()];
-      const basePrice = parseFloat(med.best_price || "0");
- 
+      const basePrice = parseFloat(med.bestPrice || "0");
       const discountAmount = (basePrice * vendorEntry.discount_seller) / 100;
       const updatedPrice = (basePrice - discountAmount).toFixed(2);
  
@@ -268,22 +305,36 @@ const getVendorMedicines = async (req, res) => {
         vendorStock: vendorEntry.stock,
         vendorDiscount: vendorEntry.discount_seller,
         vendorPrice: updatedPrice,
+        source: "service",
       };
     });
  
+    const formattedGeneralMeds = generalMeds.map((med) => {
+      const vendorEntry = vendorMap[med._id.toString()];
+      const basePrice = parseFloat(med.best_price || "0");
+      const discountAmount = (basePrice * vendorEntry.discount_seller) / 100;
+      const updatedPrice = (basePrice - discountAmount).toFixed(2);
+ 
+      return {
+        ...med.toObject(),
+        vendorStock: vendorEntry.stock,
+        vendorDiscount: vendorEntry.discount_seller,
+        vendorPrice: updatedPrice,
+        source: "medicine",
+      };
+    });
+ 
+    // Combine both arrays
+    const allResults = [...formattedServiceMeds, ...formattedGeneralMeds];
     return res.status(200).json({
       success: 1,
-      message: "Vendor medicines with stock > 0 fetched successfully",
-      totalCount: result.length,
-      details: result,
+      message: "Vendor medicines fetched successfully",
+      totalCount: allResults.length,
+      details: allResults,
     });
   } catch (error) {
-    console.error("Vendor Medicine Fetch Error:", error);
-    return res.status(500).json({
-      success: 0,
-      message: "Internal server error",
-      error: error.message,
-    });
+    console.error("getVendorMedicines error:", error);
+    return res.status(500).json({ success: 0, message: "Internal error", error: error.message });
   }
 };
  
@@ -293,7 +344,7 @@ const getVendorMedicines = async (req, res) => {
  
  
  
- 
+  
 //Update status
 //Method:Get
 //Endpoints:/services/update/id
@@ -452,8 +503,8 @@ const editServices = async (req, res) => {
       alternativeAddress,
       manufacturingAddress,
       medicineType,
-      quantity,
-      price,
+      stock,
+      mrp,
       prescription,
     } = req.body;
     const { id } = req.params;
@@ -493,8 +544,8 @@ const editServices = async (req, res) => {
         alternativeAddress,
         manufacturingAddress,
         medicineType,
-        quantity,
-        price,
+        quantity: stock,
+        mrp,
         photo: photoPaths,
         prescription,
       },

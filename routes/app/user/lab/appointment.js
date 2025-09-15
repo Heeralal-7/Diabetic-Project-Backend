@@ -3,6 +3,8 @@ const { middlewere } = require("../../../../middleware/auth");
 const {
   bookUserAppointment,
   bookUserAppointmentPackage,
+  userorderHistory,
+  getAllActiveOrderss,
 } = require("../../../../controllers/app/user/labs/appointment");
 const multer = require("multer");
 
@@ -37,4 +39,6 @@ route.post(
   bookUserAppointmentPackage
 );
 
+route.get("/userorderHistory",middlewere,userorderHistory)
+route.get("/getAllActiveOrderss",middlewere,getAllActiveOrderss)
 module.exports = route;

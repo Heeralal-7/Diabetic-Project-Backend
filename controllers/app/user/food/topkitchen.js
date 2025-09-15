@@ -9,8 +9,40 @@ const { ObjectId } = require("mongodb");
 //Endpoint: /topKitchen/kitchen
 const listKitchen = async (req, res) => {
   try {
-    // Get all vendors where vendor type is "Food"
-    const vendors = await Vendor.find({ vendor: "Food" });
+    const { latitude, longitude } = req.query;
+
+    if (!latitude || !longitude) {
+      return res.status(400).send({
+        success: 0,
+        message: "Latitude and Longitude are required",
+      });
+    }
+
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+
+    // Use geoNear to find vendors of type "Food" within 5km
+    const vendors = await Vendor.aggregate([
+      {
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [lng, lat],
+          },
+          distanceField: "distance",
+          spherical: true,
+          maxDistance: 5000, // 5km
+          query: { vendor: "Food" },
+        },
+      },
+      {
+        $addFields: {
+          distance: {
+            $round: [{ $divide: ["$distance", 1000] }, 2], // optional in km
+          },
+        },
+      },
+    ]);
 
     if (!vendors || vendors.length === 0) {
       return res.send({
@@ -32,7 +64,7 @@ const listKitchen = async (req, res) => {
   }
 };
 
-
+   
 
 //Get kitchen by category
 //Method: Get

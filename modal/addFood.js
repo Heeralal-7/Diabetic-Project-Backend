@@ -32,6 +32,7 @@ const addFood = Schema(
         price: { type: Number },  
         quantity: { type: Number , default: 0 },
         cartStatus: { type: Number, default: 0 },
+        calorie:{type:String,default:""}
       }],
       default: []  
     },
@@ -63,8 +64,11 @@ const addFood = Schema(
       type: Schema.Types.ObjectId,
       ref: "Meal",
       required: false, // <-- make it optional
-    }
-,    
+    }, 
+    calorie :{
+      type:String,
+      default:""
+  },   
     admin:{
       
     },

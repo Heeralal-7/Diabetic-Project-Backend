@@ -103,6 +103,7 @@ const driverSchema = Schema(
       type: Boolean,
       default: false,
     },
+    
   },
   { timestamps: true }
 );

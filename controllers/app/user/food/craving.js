@@ -2,6 +2,8 @@ const Food = require("../../../../modal/addFood");
 const Cart = require("../../../../modal/addfoodcart");
 const mongoose = require("mongoose");
 const meal = require("../../../../modal/MealTime")
+const DeliveryCharges = require("../../../../modal/DeliveryCharges");
+
 //Get particular craving food
 //Method:Get
 //Endpoint:/craving/foodName?food
@@ -247,7 +249,7 @@ const addExtraItems = async (req, res) => {
 };
 
 
- 
+
 //Get food cart data
 //Method:Get
 //Endpoint: /craving/getcart
@@ -267,7 +269,7 @@ const getCartData = async (req, res) => {
         return;
       }
 
-      cartIds.push(item._id); // ✅ Collect cart ID
+      cartIds.push(item._id);
 
       const foodPrice = parseFloat(item.FoodItem.amount) || 0;
       const discountPercentage = parseFloat(item.FoodItem.discountPercentage) || 0;
@@ -288,16 +290,47 @@ const getCartData = async (req, res) => {
 
     totalPrice = totalFoodPrice + totalAddonsPrice;
 
+    // ✅ Fetch latest delivery charges
+    let deliveryChargeFields = {
+      baseDeliveryCharge: 30,
+      freeDeliveryThreshold: 300,
+      rapidDeliveryCharge: 100,
+      taxPercentage: 2,
+      lastUpdated: null
+    };
+
+    try {
+      const charges = await DeliveryCharges.findOne().sort({ lastUpdated: -1 });
+      if (charges) {
+        deliveryChargeFields = {
+          baseDeliveryCharge: charges.baseDeliveryCharge,
+          freeDeliveryThreshold: charges.freeDeliveryThreshold,
+          rapidDeliveryCharge: charges.rapidDeliveryCharge,
+          taxPercentage: charges.taxPercentage,
+          lastUpdated: charges.lastUpdated
+        };
+      }
+    } catch (err) {
+      console.warn("⚠️ Could not fetch delivery charges, using defaults.");
+    }
+
+    // ✅ Calculate tax in rupees
+    const taxinrupess = ((totalPrice * deliveryChargeFields.taxPercentage) / 100).toFixed(2);
+
+    // ✅ Final response with all fields flat
     return res.send({
       success: 1,
       message: "Fetched successfully",
-      cartIds, // ✅ New field with cart item IDs
+      cartIds,
       details: data,
       totalFoodPrice: totalFoodPrice.toFixed(2),
       totalAddonsPrice: totalAddonsPrice.toFixed(2),
       totalPrice: totalPrice.toFixed(2),
       cart: data.length,
+      ...deliveryChargeFields,
+      taxinrupess // 🟢 New field: tax in rupees
     });
+
   } catch (error) {
     return res.send({
       success: 0,
@@ -308,7 +341,7 @@ const getCartData = async (req, res) => {
 
 
 
-
+  
 //Remove cart item
 //Method: Patch
 //Endpoint: /craving/remove
@@ -463,13 +496,15 @@ const replaceItem = async (req, res) => {
 
 
 //craving/getMeal
+// Method: GET
+// Endpoint: /craving/getMeal
 const getMeal = async (req, res) => {
   try {
-    const { id } = req.body;
-
+    const id = req.body.id || req.query.id; // body ya query dono me se id le lo
+ 
     // Find all food items with this MealId
     const data = await Food.find({ MealId: id });
-
+ 
     return res.send({
       success: 1,
       message: "Items fetched successfully",
@@ -482,8 +517,67 @@ const getMeal = async (req, res) => {
     });
   }
 };
+ 
+ 
 
+// Update cart item quantity (((( for only website ))))
+// Method: PUT
+// Endpoint: /craving/updateQuantity
+const updateQuantity = async (req, res) => {
+  try {
+    const { foodItemId, quantity } = req.body;
+    const userId = req.user._id;
 
+    if (!mongoose.Types.ObjectId.isValid(foodItemId)) {
+      return res.status(400).json({ success: 0, message: "Invalid FoodItem ID" });
+    }
+
+    const qty = parseInt(quantity);
+    if (isNaN(qty) || qty < 1) {
+      return res.status(400).json({ success: 0, message: "Quantity must be a positive number" });
+    }
+
+    // Find cart item
+    const cartItem = await Cart.findOne({ FoodItem: foodItemId, userId });
+    if (!cartItem) {
+      return res.status(404).json({ success: 0, message: "Cart item not found" });
+    }
+
+    // Find food item
+    const foodItem = await Food.findById(foodItemId);
+    if (!foodItem) {
+      return res.status(404).json({ success: 0, message: "Food item not found" });
+    }
+
+    // Update quantities
+    cartItem.quantity = qty;
+    foodItem.quantity = qty;
+
+    // Calculate final price
+    const basePrice = Number(foodItem.amount);
+    cartItem.finalprice = basePrice * qty;
+
+    // Save changes
+    await cartItem.save();
+    await foodItem.save();
+
+    return res.status(200).json({
+      success: 1,
+      message: "Quantity updated successfully",
+      data: {
+        cartItem,
+        foodItem
+      }
+    });
+
+  } catch (error) {
+    console.error("Update quantity error:", error);
+    return res.status(500).json({
+      success: 0,
+      message: error.message || "Failed to update quantity"
+    });
+  }
+};
 
 
 
@@ -499,5 +593,6 @@ module.exports = {
   removeCart,
   getCartData,
   addExtraItems,
-  getMeal
+  getMeal,
+  updateQuantity // for only website
 };

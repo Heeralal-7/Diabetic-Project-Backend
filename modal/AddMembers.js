@@ -1,6 +1,6 @@
 const { Schema, model } = require("mongoose");
 
-const appointmentSchema = Schema(
+const addMemberSchema = new Schema(
   {
     image: {
       type: String,
@@ -8,41 +8,72 @@ const appointmentSchema = Schema(
     },
     name: {
       type: String,
-      default: "",
+      required: true,
     },
     yearOfBirth: {
       type: String,
-      default: "",
+      required: true,
     },
     phoneNumber: {
       type: String,
-      default: "",
+      required: true,
     },
     gender: {
       type: String,
-      default: "",
+      required: true,
     },
     address: {
       type: String,
-      default: "",
+      required: true,
     },
     city: {
       type: String,
-      default: "",
+      required: true,
     },
     pinCode: {
       type: String,
-      default: "",
+      required: true,
     },
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
+    vendorId: {
+      type: Schema.Types.ObjectId,
+      ref: "Vandor",
+      default: null,
+    },
+   
+    addtestId: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Addtest",
+        default: null,
+      },
+    ],
+    AddPackageId: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "AddPackage",
+        default: null,
+      },
+    ],
+    AppointmentId: 
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Appointment",
+        default: null,
+      },
+    price:{
+      type:String,
+      default:""
+    }
+      
   },
   {
     timestamps: true,
   }
 );
 
-module.exports = model("AddMember", appointmentSchema);
+module.exports = model("AddMember", addMemberSchema);

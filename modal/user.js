@@ -143,7 +143,24 @@ const User = Schema(
     partnerCode:{
       type:String,
       default:""
-    }
+    },
+    regId: {
+      type: String,
+      default: "",
+    },
+    latitude: {
+    type: String,
+  },
+  longitude: {
+    type: String,
+  },
+    chatStatus:{
+      type:String,
+    },
+   banner: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

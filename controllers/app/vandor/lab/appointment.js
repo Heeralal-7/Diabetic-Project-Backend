@@ -8,7 +8,7 @@ const Document = require("../../../../modal/Document");
 
 // Get All Vendor Appointments
 // Method:Get
-// EndPoints:/
+// EndPoints:/ all-appointments/getallaapointments
 // type 0 for genralOrder and 1 for prescriptionOrder
 // status 0 pending 1 for accepted 2 for rejected and 3 for pending for reports
 const getAllVendorAppointments = async (req, res) => {
@@ -30,6 +30,11 @@ const getAllVendorAppointments = async (req, res) => {
       .populate({
         path: "userId",
         select: "name",
+      })
+      .populate({
+        path: 'testId',
+        model: 'Addtest',
+        select: 'testName',
       })
 
       .skip((pageNumber - 1) * pageSize)
@@ -53,18 +58,20 @@ const getAllVendorAppointments = async (req, res) => {
   }
 };
 
+
 // Update appointment
 // Method:Patch
 // EndPoints:/all-appointments/updatestatus
 // type : 1 for accept and  2 for reject
 const updateAppointmentStatus = async (req, res) => {
   try {
-    const { type, appointmentId } = req.body;
+    const { type, appointmentId,rejectionReason } = req.body;
 
     // Find and update the appointment status
     const updatedAppointment = await Appointment.findOneAndUpdate(
       { _id: appointmentId, vendorId: req.user._id },
       { status: type },
+      {rejectionReason:rejectionReason},
       { new: true }
     );
 
@@ -99,7 +106,7 @@ const getParticularAppointment = async (req, res) => {
   try {
     const { status, page, limit } = req.query;
 
-    if (status === undefined || ![0, 1, 2, 3].includes(parseInt(status))) {
+    if (status === undefined || ![0, 1, 2, 3, 6 ,7,8].includes(parseInt(status))) {
       return res.send({
         success: 0,
         message:
@@ -113,7 +120,11 @@ const getParticularAppointment = async (req, res) => {
     const statusInt = parseInt(status);
 
     const data = await Appointment.find({ status: statusInt })
-
+      .populate({
+        path: 'testId',         // field in appointment schema
+        model: 'Addtest',       // correct model name
+        select: 'testName',     // you can add more fields here if needed
+      })
       .skip((pageNumber - 1) * pageSize)
       .limit(pageSize)
       .exec();
@@ -137,6 +148,101 @@ const getParticularAppointment = async (req, res) => {
     });
   }
 };
+
+
+//   all-appointments/getHomeCollection
+const getHomeCollection = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const pageNumber = parseInt(page, 10);
+    const pageSize = parseInt(limit, 10);
+
+    const data = await Appointment.find({
+      serviceType: { $in: ["Home Collection", "HomeCollection"] },
+      status: "1"
+    })
+      .populate({
+        path: 'testId',
+        model: 'Addtest',
+        select: 'testName',
+      })
+      .populate({
+        path: 'packageId',
+        model: 'AddPackage',
+      })
+      .skip((pageNumber - 1) * pageSize)
+      .limit(pageSize)
+      .exec();
+
+    return res.send({
+      success: 1,
+      message: "Fetched successfully",
+      details: data,
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+
+
+// const assignDriverToLabOrder = async (req, res) => {
+//   try {
+//     const { AppointmentId, driverId } = req.body;
+
+//     if (!AppointmentId || !driverId) {
+//       return res.send({
+//         success: 0,
+//         message: "Order ID and Driver ID are required",
+//       });
+//     }
+
+//     // check order exists and is accepted
+//     const order = await Appointment.findOne({ _id: AppointmentId, status: "1" });
+
+//     if (!order) {
+//       return res.send({
+//         success: 0,
+//         message: "Accepted order not found",
+//       });
+//     }
+
+//     // check driver is online
+//     const driver = await Driver.findOne({ _id: driverId, isOnline: true });
+
+//     if (!driver) {
+//       return res.send({
+//         success: 0,
+//         message: "Driver not found or not online",
+//       });
+//     }
+
+//     // Assign driver to order
+//     order.driverId = driverId;
+//     order.status = "2"; // assigned to driver 
+//     await order.save();
+
+//     // Mark driver as busy
+//     driver.isBusy = true;
+//     await driver.save();
+
+//     return res.send({
+//       success: 1,
+//       message: "Driver assigned successfully to the order",
+//       details: order,
+//     });
+
+//   } catch (error) {
+//     return res.send({
+//       success: 0,
+//       message: error.message,
+//     });
+//   }
+// };
+
 
 // Get Today appointment
 // Method:Get
@@ -173,7 +279,7 @@ const uploadReport = async (req, res) => {
       id,
       {
         report: `/vendor/report/${req.file.filename}`,
-        status: 3
+        status: 8
       },
       { new: true }
     );
@@ -281,6 +387,93 @@ const assignDriverToAppointment = async (req, res) => {
     });
   }
 };
+ // all-appointments/getOrderWithDriver
+const getOrderWithDrivers = async (req, res) => {
+  try {
+    const { orderId } = req.query;
+
+    const order = await Appointment.findById(orderId)
+      .populate("userId")
+      .populate("driverId"); // ✅ include driver details
+
+    if (!order) {
+      return res.send({
+        success: 0,
+        message: "Order not found",
+      });
+    }
+
+    return res.send({
+      success: 1,
+      message: "Order with driver fetched successfully",
+      details: order,
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+// all-appointments/venorderHistory
+const venorderHistory = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+
+    // Get all orders that are either delivered (5) or rejected (6)
+    const orders = await Appointment.find({
+      vendorId,
+      status: { $in: [ "8"] }, // 5 = Delivered, 6 = Rejected
+    })
+    .populate("userId") // Full user details
+    .populate("vendorId") // Full vendor details
+    .populate("driverId")
+    .populate({
+      path: "AddMemberId",
+      model: "AddMember",
+      populate: [
+        {
+          path: "addtestId",
+          model: "Addtest",
+        },
+        {
+          path: "AddPackageId",
+          model: "AddPackage",
+        },
+      ],
+    }) // ✅ Add driver details (self)
+    // .populate("Appointment") // food items
+      .populate("driverId", "name phoneNumber")   
+      .populate({
+        path: 'testId',
+        model: 'Addtest',
+        select: 'testName',
+      })
+      .populate({
+        path: 'packageId',
+        model: 'AddPackage',
+      })       // driver info
+      .sort({ updatedAt: -1 });                           // latest first
+
+
+    return res.send({
+      success: 1,
+      message: "Order history fetched successfully",
+      count: orders.length,
+      details: orders,
+    });
+
+  } catch (error) {
+    console.error("Order history error:", error);
+    return res.status(500).send({
+      success: 0,
+      message: "Failed to fetch order history",
+      error: error.message,
+    });
+  }
+};
+
 
 module.exports = {
   getAllVendorAppointments,
@@ -291,4 +484,7 @@ module.exports = {
   getParticularAppointment,
   uploadReport,
   searchVendor,
+  getHomeCollection,
+  getOrderWithDrivers,
+  venorderHistory
 };

@@ -2,7 +2,13 @@ const Appointment = require("../../../../modal/Appointment");
 const BookedSlot = require("../../../../modal/BookedSlot");
 const Wallet = require("../../../../modal/wallet");
 const AddMember = require("../../../../modal/AddMembers");
-
+const Doctor = require("../../../../modal/docter");
+const Prescribe = require("../../../../modal/Prescribe");
+const Availablity = require("../../../../modal/availability");
+const patient = require("../../../../modal/addpatientdetails")
+const doctorPrescription = require("../../../../modal/DoctorPrescription")
+const mongoose = require("mongoose"); // ज़रूरी है अगर ObjectId check करना हो
+const User = require("../../../../modal/user")
 const formatTime = (time) => {
   // If already includes AM or PM, return as-is
   if (time.toLowerCase().includes("am") || time.toLowerCase().includes("pm")) {
@@ -19,7 +25,7 @@ const formatTime = (time) => {
 // Method:Post
 // EndPoits:/user-appointment/appointment
 // type 0 for digital and 1 for walkin
-// day  may be Morning | Afternoon | Evening 
+// day  may be Morning | Afternoon | Evening
 const appointment = async (req, res) => {
   try {
     const {
@@ -161,7 +167,134 @@ const appointment = async (req, res) => {
   }
 };
 
+// /user-appointment/getAllDoctorAppointments
+const getAllUserAppointments = async (req, res) => {
+  try {
+    const { type, status, page = 1 } = req.query;
+    const limit = Number(process.env.LIMIT);
+    const pageNumber = +page;
+    const skip = (pageNumber - 1) * limit;
+
+    const pipeline = [
+      { $match: { userId: req.user._id } },
+      {
+        $match: {
+          ...(status && status === "6"
+            ? { status: "6", PostponeStaus: "1" }
+            : status ? { status } : {}),
+          ...(type && { type })
+        }
+      },
+      {
+        $lookup: {
+          from: "doctors",
+          localField: "doctorId",
+          foreignField: "_id",
+          as: "doctorDetails"
+        }
+      },
+      { $unwind: "$doctorDetails" },
+      {
+        $lookup: {
+          from: "patients",
+          localField: "patientId",
+          foreignField: "_id",
+          as: "patientDetails"
+        }
+      },
+      {
+        $unwind: {
+          path: "$patientDetails",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Get prescription details
+      {
+        $lookup: {
+          from: "doctorprescriptions",
+          localField: "_id",
+          foreignField: "AppointmentId",
+          as: "prescriptionDetails"
+        }
+      },
+      {
+        $unwind: {
+          path: "$prescriptionDetails",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Get insurance details from prescription
+      {
+        $lookup: {
+          from: "addinsurancetypes",
+          localField: "prescriptionDetails.addInsuranceTypeId",
+          foreignField: "_id",
+          as: "insuranceDetails"
+        }
+      },
+      {
+        $unwind: {
+          path: "$insuranceDetails",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Get coupon details
+      {
+        $lookup: {
+          from: "coupons",
+          localField: "couponId",
+          foreignField: "_id",
+          as: "couponDetails"
+        }
+      },
+      {
+        $unwind: {
+          path: "$couponDetails",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Final projection with merged insurance fields into prescription
+      {
+        $project: {
+          _id: 0,
+          appointment: "$$ROOT",
+          doctor: "$doctorDetails",
+          patient: "$patientDetails",
+          coupon: "$couponDetails",
+          prescription: {
+            $mergeObjects: [
+              "$prescriptionDetails",
+              {
+                insuranceName: "$insuranceDetails.addInsurance",
+                insuranceImage: "$insuranceDetails.insuranceImage"
+              }
+            ]
+          }
+        }
+      },
+
+      { $skip: skip },
+      { $limit: limit }
+    ];
+
+    const details = await Appointment.aggregate(pipeline);
+
+    res.send({
+      success: 1,
+      message: "User appointments fetched successfully",
+      details
+    });
+  } catch (error) {
+    res.send({ success: 0, message: error.message });
+  }
+};
 
 
 
-module.exports = { appointment };
+
+
+module.exports = { appointment,getAllUserAppointments };

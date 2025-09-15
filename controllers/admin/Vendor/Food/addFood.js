@@ -6,7 +6,7 @@ const Meal =  require("../../../../modal/MealTime")
 ///admin-food/addCategory
 const createCategory = async(req,res)=>{
     try {
-        const {name, category} = req.body
+        const {name, category,calorie} = req.body
 
 
         const foodImage = req.file && `/admin/vendor/foodImage/${req.file.filename}`
@@ -14,7 +14,8 @@ const createCategory = async(req,res)=>{
         const data = await FoodCategory.create({
             name,
             category,
-            foodImage
+            foodImage,
+            calorie
 
         })
 

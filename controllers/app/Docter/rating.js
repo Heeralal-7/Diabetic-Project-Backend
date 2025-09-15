@@ -1,5 +1,6 @@
 const Rating = require("../../../modal/rating");
 
+// /doctor-rating/getAverage
 const getAverage = async (data, doctorId) => {
   try {
     const ratings = await Rating.find({
@@ -76,7 +77,7 @@ const getRatingFeedback = async (req, res) => {
 
 // Get rating of Doctor
 // Method:Get
-// EndPoint://doctor-rating/
+// EndPoint://doctor-rating/rating
 const getDoctorRating = async (req, res) => {
   try {
     const isExist = await Rating.find({ doctorId: req.user._id })
@@ -134,4 +135,4 @@ const getDoctorRating = async (req, res) => {
   }
 };
 
-module.exports = { getDoctorRating, getRatingFeedback };
+module.exports = { getDoctorRating, getRatingFeedback,getAverage };

@@ -307,32 +307,95 @@ const deleteCartItem = async (req, res) => {
   }
 };
 
-//   /food-Order/getordertype
+// get bulk orders
+// Method: GET
+// Endpoint: /food-Order/getordertype
+// This endpoint retrieves all bulk orders (orders with at least one item having quantity > 1)
+
 const getordertype = async (req, res) => {
   try {
-    // Find orders where at least one item has quantity > 1, and status is "0"
-    const bulkOrders = await FoodOrder.find({
-      status: "0",
-      "items.quantity": { $gt: 1 },
+    // Find all orders with status "0"
+    const orders = await FoodOrder.find({
+      status: "0"
     })
       .populate("userId")
       .populate("items.FoodItem");
 
-    // Filter out any orders that do not meet the bulk order criteria (single-item orders)
-    const bulkOnlyOrders = bulkOrders.filter(order => 
+    // Filter orders where either:
+    // 1. There are multiple items (even if each has quantity 1), OR
+    // 2. Any single item has quantity > 1
+    const bulkOrders = orders.filter(order => 
+      order.items.length > 1 || 
       order.items.some(item => item.quantity > 1)
     );
 
     return res.send({
       success: 1,
       message: "Fetched successfully",
-      details: bulkOnlyOrders,
-      totalCount: bulkOnlyOrders.length,
+      details: bulkOrders,
+      totalCount: bulkOrders.length,
     });
   } catch (error) {
     return res.send({
       success: 0,
       message: error.message,
+    });
+  }
+};
+
+// food order history for driver
+// Method: GET
+// Endpoint: /food-Order/orderHistorydriver
+const orderHistorydriver = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Get all orders that are either delivered (5) or rejected (6)
+    const orders = await FoodOrder.find({
+      userId,
+      status: { $in: ["5", "6"] }, // 5 = Delivered, 6 = Rejected
+    })
+    .populate("userId") // Full user details
+    .populate("vendorId") // Full vendor details
+    .populate("driverId") // ✅ Add driver details (self)
+    .populate("items.FoodItem") // food items
+      .populate("driverId", "name phoneNumber")          // driver info
+      .sort({ updatedAt: -1 });                           // latest first
+
+    // Format the response with more details
+    const formattedOrders = orders.map(order => ({
+      _id: order._id,
+      orderId: order.orderId, // if you have an order ID field
+      status: order.status,
+      statusText: order.status === "5" ? "Delivered" : "Rejected",
+      totalAmount: order.totalAmount,
+      deliveryAddress: order.deliveryAddress,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      rejectionReason: order.rejectionReason || null,
+      user: order.userId,
+      vendor: order.vendorId,
+      driver: order.driverId,
+      items: order.items.map(item => ({
+        foodItem: item.FoodItem,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+    }));
+
+    return res.send({
+      success: 1,
+      message: "Order history fetched successfully",
+      count: orders.length,
+      details: formattedOrders,
+    });
+
+  } catch (error) {
+    console.error("Order history error:", error);
+    return res.status(500).send({
+      success: 0,
+      message: "Failed to fetch order history",
+      error: error.message,
     });
   }
 };
@@ -344,8 +407,4 @@ const getordertype = async (req, res) => {
 
 
 
-
-
-
-
-module.exports = { bookOrder, available, getOrder,getdiscountorder ,deleteCartItem,getordertype };
+module.exports = { bookOrder, available, getOrder,getdiscountorder ,deleteCartItem,getordertype,orderHistorydriver };

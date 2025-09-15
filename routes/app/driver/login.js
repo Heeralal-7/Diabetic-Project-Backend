@@ -15,7 +15,8 @@ const {
   rejectOrder,
   orderHistory,
   getAllActiveOrders,
-  driverAssignReject
+  driverAssignReject,
+  collectSample
   
 } = require("../../../controllers/app/driver/login");
 const { driverMiddleware } = require("../../../middleware/auth");
@@ -40,4 +41,5 @@ router.patch("/reject-order/:orderId", driverMiddleware, rejectOrder);
 router.get("/order-history", driverMiddleware, orderHistory);
 router.get("/getAllActiveOrders",middlewere,getAllActiveOrders);
 router.patch("/driver-assign-reject/:orderId", driverMiddleware, driverAssignReject);
+router.patch("/collectSample",collectSample)
 module.exports = router;

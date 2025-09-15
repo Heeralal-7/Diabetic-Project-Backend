@@ -16,6 +16,8 @@ const createFood = async (req, res) => {
       amount,
       discountPercentage,
       MealId,
+      calorie
+
     } = req.body;
 
     // Validate required fields
@@ -57,6 +59,7 @@ const createFood = async (req, res) => {
       sugarFree,
       addons,
       amount,
+      calorie,
       image: photoPaths,
       discountPercentage,
       vendorId: req.user._id,
@@ -319,6 +322,7 @@ const getfoodcategory = async (req, res) => {
           name: category.name,
           foodImage: category.foodImage,
           category: category.category,
+          calorie:category.calorie,
           createdAt: category.createdAt,
           updatedAt: category.updatedAt,
         });

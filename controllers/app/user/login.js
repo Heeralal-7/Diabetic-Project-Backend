@@ -69,26 +69,24 @@ const getProfilePercentage = async (user) => {
 // EndPoint:"/login"
 const userRegisterAndLogin = async (req, res) => {
   try {
-    const { ctrCode, number } = req.body;
+    const { ctrCode, number, } = req.body;
+    const otp = "1111";
 
-    const otp = 1111;
+    const checkIsExist = await TempOtp.findOne({ ctrCode, number });
 
-    const checkIsExist = await TempOtp.findOne({
-      $and: [{ ctrCode }, { number }],
-    });
     if (!checkIsExist) {
-      await TempOtp.create({ ctrCode, number, otp });
-      return res.send({
-        success: 1,
-        message: "Otp has been sent successfully",
-      });
+      await TempOtp.create({ ctrCode, number, otp, });
     } else {
-      await checkIsExist.updateOne({ otp });
-      return res.send({
-        success: 1,
-        message: "Otp has been sent successfully",
-      });
+      await TempOtp.updateOne(
+        { _id: checkIsExist._id },
+        { $set: { otp } }
+      );
     }
+
+    return res.send({
+      success: 1,
+      message: "Otp has been sent successfully",
+    });
   } catch (error) {
     return res.send({
       success: 0,
@@ -97,14 +95,22 @@ const userRegisterAndLogin = async (req, res) => {
   }
 };
 
+
+
+
 // Verfiy User
 // Method:Post
 // EndPoint:"/verify"
 const verifyUser = async (req, res) => {
   try {
-    const { number, otp, ctrCode } = req.body;
+    const { number, otp, ctrCode, regId } = req.body;
 
-    const checkOtp = await TempOtp.findOne({ $and: [{ number }, { ctrCode }] });
+    // Convert lat/lng to numbers (or undefined if invalid)
+    const latitude = parseFloat(req.body.latitude);
+    const longitude = parseFloat(req.body.longitude);
+
+    // Find OTP
+    const checkOtp = await TempOtp.findOne({ number, ctrCode });
     if (!checkOtp) {
       return res.send({
         success: 0,
@@ -112,51 +118,83 @@ const verifyUser = async (req, res) => {
       });
     }
 
-    if (checkOtp.otp !== otp) {
+    // Check OTP
+    if (String(checkOtp.otp) !== String(otp)) {
       return res.send({
         success: 0,
-        message: "Please enter correct otp",
+        message: "Please enter correct OTP",
       });
     }
-    const userExist = await User.findOne({ $and: [{ number }, { ctrCode }] });
+
+    // Existing user
+    const userExist = await User.findOne({ number, ctrCode });
+
     if (userExist) {
-      return res.send({
-        success: 1,
-        message: "User logged in successfully",
-        details: {
-          token: userExist.token,
-        },
-      });
-    } else {
-      let userCreate = await User.create({ number, ctrCode });
-      console.log(userCreate )
-      let checkVal = await User.findByIdAndUpdate(
-        userCreate._id,
+      const updatedUser = await User.findByIdAndUpdate(
+        userExist._id,
         {
           $set: {
-            token: generateToken(userCreate._id),
-            referralCode: generateReferralCode(),
-          },
+            regId: regId || '',
+            latitude: isNaN(latitude) ? undefined : latitude,
+            longitude: isNaN(longitude) ? undefined : longitude,
+          }
         },
         { new: true }
       );
 
       return res.send({
         success: 1,
-        message: "User has been created successfully",
+        message: "User logged in successfully",
         details: {
-          token: checkVal.token,
-          referralCode: checkVal.referralCode,
+          token: updatedUser.token,
+          regId: updatedUser.regId,
         },
       });
     }
+
+    // New user
+    let userCreate = await User.create({
+      number,
+      ctrCode,
+      regId: regId || '',
+      latitude: isNaN(latitude) ? undefined : latitude,
+      longitude: isNaN(longitude) ? undefined : longitude,
+    });
+
+    const token = generateToken(userCreate._id);
+    const referralCode = generateReferralCode();
+
+    const finalUser = await User.findByIdAndUpdate(
+      userCreate._id,
+      {
+        $set: {
+          token,
+          referralCode,
+        },
+      },
+      { new: true }
+    );
+
+    return res.send({
+      success: 1,
+      message: "User has been created successfully",
+      details: {
+        token: finalUser.token,
+        referralCode: finalUser.referralCode,
+        regId: finalUser.regId,
+      },
+    });
+
   } catch (error) {
+    console.error(error);
     return res.send({
       success: 0,
       message: error.message,
     });
   }
 };
+
+
 
 // Update User profile
 // Method:Patch

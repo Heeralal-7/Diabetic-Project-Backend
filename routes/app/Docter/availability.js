@@ -15,4 +15,5 @@ router.get("/dates", doctorMiddleware, getAllStartAndEndDate);
 
 router.post("/getAvailabilty", doctorMiddleware, getAvailabiltyOfDoctorAndTime);
  
+
 module.exports = router;

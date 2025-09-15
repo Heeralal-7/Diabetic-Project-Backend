@@ -4,7 +4,7 @@ const BookSlot = require("../../../../modal/BookedSlot");
 
 // To Create test
 // Method : Post,
-// EndPoint: /create-test
+// EndPoint: addtest/create-test
 const createTest = async (req, res) => {
   try {
     const {

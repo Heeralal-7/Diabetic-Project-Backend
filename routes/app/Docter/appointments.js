@@ -5,6 +5,9 @@ const {
   acceptOrRejctAppointment,
   addPrescribe,
   postPonedAppointment,
+  paymentDone,
+  getpayment,
+  
 } = require("../../../controllers/app/Docter/appointments");
 
 const router = Router();
@@ -12,6 +15,7 @@ const router = Router();
 router.get("/", doctorMiddleware, getAllDoctorAppointments);
 router.patch("/accept-reject", doctorMiddleware, acceptOrRejctAppointment);
 router.post("/prescribe", doctorMiddleware, addPrescribe);
-router.post("/", doctorMiddleware, postPonedAppointment);
-
+router.post("/postponed", doctorMiddleware, postPonedAppointment);
+router.get("/getpayment",getpayment)
+router.post("/paymentDone",paymentDone)
 module.exports = router;

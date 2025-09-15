@@ -44,29 +44,31 @@ const getprescribedTest = async (req, res) => {
 //Endpoint:/onSearch/package
 const popularPackage = async (req, res) => {
   try {
-    // Fetch all appointments from the database
-    const appointments = await Appointment.find({}).populate('testId');
-
+    // Fetch all appointments and populate testId and inside it, vendorId
+    const appointments = await Appointment.find({})
+      .populate({
+        path: 'testId',
+        populate: {
+          path: 'vendorId', // populate vendorId inside testId
+        },
+      });
 
     const packageMap = {};
 
-
     appointments.forEach((appointment) => {
-     
       const tests = Array.isArray(appointment.testId)
         ? appointment.testId
         : [appointment.testId];
 
-
       tests.forEach((test) => {
-        const testId = test._id.toString(); 
+        const testId = test._id.toString();
         if (!packageMap[testId]) {
           packageMap[testId] = {
-            testDetails: test, 
-            count: 1, 
+            testDetails: test,
+            count: 1,
           };
         } else {
-          packageMap[testId].count += 1; 
+          packageMap[testId].count += 1;
         }
       });
     });
@@ -75,10 +77,9 @@ const popularPackage = async (req, res) => {
       (a, b) => b.count - a.count
     );
 
-    // Limit the result to the top 5 packages
     const topPackages = sortedPackages.slice(0, 5).map((pkg) => {
       const { count, testDetails } = pkg;
-      return testDetails; 
+      return testDetails;
     });
 
     return res.send({

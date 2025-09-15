@@ -8,8 +8,19 @@ const {
   deleteDriver,
   // getOnlineDrivers,
   updatedriverStatus,
-  
+  getDriverAssignedOrders,
+  rejectOrder,
+  startOrder,
+  driverAssignRejects,
+  arrivedOrder,
+  markAsDelivered,
+  orderHistory,
+  getAllActiveOrder,
+  // driverMiddleware
 } = require("../../../../controllers/app/vandor/lab/driver");
+
+
+const { driverMiddleware } = require("../../../../middleware/auth");
 
 const route = Router();
 
@@ -85,5 +96,12 @@ route.delete("/delete-driver/:id", VendorMiddleware, deleteDriver);
 // route.get("/driver/assigned-orders", VendorMiddleware, getAssignedOrders);
 // route.patch("/driver/update-order-status/:orderId", VendorMiddleware, updateOrderStatus);
 // route.patch('/update' , updatedriverStatus)
-
+route.get("/getDriverAssignedOrders",driverMiddleware,getDriverAssignedOrders)
+route.patch("/rejectOrder",driverMiddleware,rejectOrder)
+route.patch("/startOrder",driverMiddleware,startOrder)
+route.patch("/driverAssignRejects",driverMiddleware,driverAssignRejects)
+route.patch("/arrivedOrder",driverMiddleware,arrivedOrder)
+route.patch("/markAsDelivered",driverMiddleware,markAsDelivered)
+route.get("/orderHistory",driverMiddleware,orderHistory)
+route.get("/getAllActiveOrder",driverMiddleware,getAllActiveOrder)
 module.exports = route;

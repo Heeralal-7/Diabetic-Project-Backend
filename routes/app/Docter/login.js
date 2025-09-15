@@ -1,5 +1,7 @@
 const { Router } = require("express");
 const multer = require("multer");
+
+
 const {
   registerDoctor,
   verifyEmailOtp,
@@ -16,6 +18,7 @@ const {
   getDoctor,
   updateDoctor,
   changePassword,
+  getUsersWhoMessagedDoctor,
 } = require("../../../controllers/app/Docter/login");
 const { doctorMiddleware } = require("../../../middleware/auth");
 
@@ -36,6 +39,9 @@ const storage1 = multer.diskStorage({
       cb(null, "uploads/doctor/licenceImage");
     } else if (file.fieldname === "image") {
       cb(null, "uploads/doctor/image");
+    } else if (file.fieldname === "signature") {
+      cb(null, "uploads/doctor/signature");
+      
     } else {
       cb(new Error("Unknown field"));
     }
@@ -71,6 +77,7 @@ router.post(
     { name: "certificate", maxCount: 1 },
     { name: "licenceImage", maxCount: 1 },
     { name: "image", maxCount: 1 },
+    { name:"signature",maxCount: 1},
   ]),
   registerDoctor
 );
@@ -97,5 +104,7 @@ router.patch(
   doctorMiddleware,
   updateDoctor
 );
+
+router.get("/getUsersWhoMessagedDoctor",doctorMiddleware,getUsersWhoMessagedDoctor)
 
 module.exports = router;

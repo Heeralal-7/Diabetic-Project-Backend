@@ -9,18 +9,22 @@ const bodyParser = require("body-parser");
 const app = express();
 const port = process.env.PORT || 8081;
 const totalCpus = os.cpus().length
- 
+
 
 if(cluster.isPrimary){
   for(let i=0; i<totalCpus; i++){
     cluster.fork()
   }
 } else{
+  
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static("./uploads"));
 app.use(bodyParser.urlencoded({ extended: true }));
+const path = require("path");
+
+app.use('/prescriptions', express.static(path.join(__dirname, 'uploads/doctor/PdfDocument')));
 
 // Database
 db();
@@ -42,8 +46,10 @@ app.use("/admin-pharmacy-all", require("./routes/admin/Vendor/Pharmacy/user"))
 app.use("/admin-user" , require("./routes/admin/User/user"))
 app.use("/admin-food" , require("./routes/admin/Vendor/Food/addFood"))
 app.use("/doctorAccess", require("./routes/admin/Doctor/doctorAccess"));
-app.use("/upload-excel", require("./routes/admin/Vendor/Pharmacy/Medicine")); // upload medicine
+app.use("/admin-medicine", require("./routes/admin/Vendor/Pharmacy/Medicine")); // upload medicine
 app.use("/upload-excel-hospital", require("./routes/admin/Vendor/Pharmacy/Products")); // upload hospital product
+ app.use("/admin-delivery-charges", require("./routes/admin/Vendor/Pharmacy/DeliveryCharges")); // delivery charges
+ 
  
 ////////////    Admin Routes End    /////////////////////
 
@@ -61,6 +67,8 @@ app.use("/doctor-coupon", require("./routes/app/Docter/coupon"));
 app.use("/doctor-availability", require("./routes/app/Docter/availability"));
 app.use("/doctor-privacy", require("./routes/app/Docter/privacypolicy"));
 app.use("/add-bank", require("./routes/app/Docter/AddAccount"));
+app.use("/doctor-Prescription",require("./routes/app/Docter/doctorPrescription"));
+app.use("/fire",require("./routes/app/Docter/firebase"))
 ////////////// Doctor Rotues End  //////////////////
 
 ////////////    Vendor Routes Start    /////////////////////
@@ -124,11 +132,17 @@ app.use("/onSearch" , require("./routes/app/user/lab/onSearch"))
 app.use("/tbanner" , require("./routes/app/user/banner"))
 app.use("/topKitchen" , require("./routes/app/user/food/topkitchen"))
 app.use('/food-Order' , require("./routes/app/user/food/order"))
+app.use("/Userpayment",require("./routes/app/user/payment"))
+app.use("/membership",require("./routes/app/user/referal"))
 ////////////    User Routes end    /////////////////////
 
 ////////////    Driver Routes Start    /////////////////////
 app.use("/driver", require("./routes/app/driver/login"));
 app.use("/history", require("./routes/app/driver/History"));
+app.use("/member",require("./routes/app/driver/AddMebmer"))
+app.use("/driver-pharmacy", require("./routes/app/driver/PharmacyDriver"));
+ 
+ 
 ////////////    Driver Routes End    /////////////////////
 
 app.get("/test", (req, res) => {
@@ -149,7 +163,21 @@ app.use("/update-test", require("./routes/test"));
 app.use("/generate-token", require("./routes/zego/zego"));
 //End Zego Cloud
 
-// app.use("/agora", require("./routes/agora/agora"));
+app.use("/agora", require("./routes/agora/agora"));
+
+////////////    Clinic Routes start    /////////////////////
+
+
+app.use("/Clinic",require("./routes/app/Clinic/login"))
+app.use("/Clinic-Documnet",require("./routes/app/Clinic/Document"))
+app.use("/userClinic",require("./routes/app/user/Clinic/Clinic"))
+app.use("/clincuser",require("./routes/app/user/Clinic/ClinicAppointment"))
+app.use("/ClinicAppointment",require("./routes/app/Clinic/ClinicAppointment"))
+////////////    Clinic Routes End    /////////////////////
+
+
+
+
 
 // Listener
 const IP = process.env.IP;

@@ -4,7 +4,7 @@ const Availability = require("../../../../modal/availability");
 const moment = require("moment");
 const Package = require("../../../../modal/AddPackages");
 
-
+       
 
 //Get vendor details
 //Method:Get
@@ -13,25 +13,50 @@ const getVendor = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-
     const skip = (page - 1) * limit;
-    // Fetch all vendors
-    const vendors = await Vendor.find({ vendor: "Lab" })
-      .skip(skip)
-      .limit(limit);
 
-    // Use Promise.all to handle asynchronous operations in parallel
+    const { latitude, longitude } = req.query;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: 0,
+        message: "Latitude and Longitude are required",
+      });
+    }
+
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+
+    // Step 1: Fetch vendors using geoNear
+    const vendorsNearby = await Vendor.aggregate([
+      {
+        $geoNear: {
+          near: { type: "Point", coordinates: [lng, lat] },
+          distanceField: "distance",
+          spherical: true,
+          maxDistance: 5000, // 5 km
+          query: { vendor: "Lab" },
+        },
+      },
+      {
+        $addFields: {
+          distance: {
+            $round: [{ $divide: ["$distance", 1000] }, 2], // optional km value
+          },
+        },
+      },
+      { $skip: skip },
+      { $limit: limit },
+    ]);
+
+    // Step 2: Fetch availability and tests for each vendor
     const vendorDetails = await Promise.all(
-      vendors.map(async (vendor) => {
-        // Fetch associated availability for the vendor
+      vendorsNearby.map(async (vendor) => {
         const availability = await Availability.find({ vendorId: vendor._id });
-
-        // Fetch associated tests for the vendor
         const tests = await Addtest.find({ vendorId: vendor._id });
 
-        // Return vendor details along with availability and tests
         return {
-          ...vendor._doc, // Spread the vendor's details
+          ...vendor, // full vendor doc (with _id, name, location, etc.)
           availability,
           tests,
         };
@@ -186,7 +211,7 @@ const getAvailabiltyOfUserVendorAndTime = async (req, res) => {
     });
   }
 };
-
+// labnear/test/:id
 const getVendorTest = async (req, res) => {
   try {
     const { id } = req.params;
@@ -437,6 +462,7 @@ const getpackages = async (req, res) => {
   }
 };
 
+// Endpoint: /labnear/package
 const getallpacakge = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;

@@ -56,7 +56,7 @@ const uploadProductExcel = async (req, res) => {
  
 // Get all product data
 // Method: GET
-// Endpoint: /upload-excel-hospital/getProducts
+// Endpoint: /upload-excel-hospital/get-all-product
 const getAllProductData = async (req, res) => {
   try {
     const products = await PharmacyProduct.find({});
