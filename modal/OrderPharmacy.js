@@ -3,9 +3,6 @@ const { Schema, model } = require('mongoose');
 const orderItemSchema = new Schema({
   items: [{
     productId: { type: Schema.Types.ObjectId, ref: 'PharmacyProduct' },
-    medicineId: { type: Schema.Types.ObjectId, ref: 'PharmacyMedicine' },
-    itemName: String, // 'productName' or 'medicineName'
-  
     productName: String,
     vendorId: { type: Schema.Types.ObjectId, ref: 'Vandor' },
     vendorName: String,
@@ -14,7 +11,6 @@ const orderItemSchema = new Schema({
     discount: Number,
     totalPrice: Number,
     itemType: String // 'product' or 'medicine'
-
   }],
   userId: { type: Schema.Types.ObjectId, ref: 'User' },
   status: { type: Number, default: 0 },
@@ -22,14 +18,7 @@ const orderItemSchema = new Schema({
   address: String,
   timeSlot: String,
   dateSlot: String,
-  addressId: { type: Schema.Types.ObjectId, ref: 'Patient' }, //addressId for user address
- coupon: {
-    id: { type: Schema.Types.ObjectId, ref: 'Coupon' },
-    code: String,
-    discountType: String, // 'percentage' or 'fixed'
-    discountValue: Number,
-    description: String
-  },
+  coupon: String,
   subTotal: { type: Number, required: true },
   tax: { type: Number, required: true },
   deliveryCharges: { type: Number, required: true },

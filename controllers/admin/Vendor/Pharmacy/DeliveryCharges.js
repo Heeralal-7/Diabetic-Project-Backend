@@ -1,5 +1,5 @@
 const DeliveryCharges = require("../../../../modal/DeliveryCharges");
-
+ 
 // Get current delivery charges
 // Method: GET
 // Endpoint: /admin-delivery-charges/get
@@ -13,7 +13,7 @@ const getDeliveryCharges = async (req, res) => {
         success: 1,
         message: "Using default delivery charges",
         data: {
-          baseDeliveryCharge: 50,
+          baseDeliveryCharge: 30,
           freeDeliveryThreshold: 300,
           rapidDeliveryCharge: 100,
           taxPercentage: 2,
@@ -21,7 +21,7 @@ const getDeliveryCharges = async (req, res) => {
         }
       });
     }
-
+ 
     return res.status(200).json({
       success: 1,
       message: "Delivery charges fetched successfully",
@@ -36,7 +36,7 @@ const getDeliveryCharges = async (req, res) => {
     });
   }
 };
-
+ 
 // Update delivery charges (Admin only)
 // Method: POST
 // Endpoint: /admin-delivery-charges/update
@@ -48,16 +48,16 @@ const updateDeliveryCharges = async (req, res) => {
         rapidDeliveryCharge,
         taxPercentage
     } = req.body;
-
+ 
     // Validate input
-    if (isNaN(baseDeliveryCharge) || isNaN(freeDeliveryThreshold) || 
+    if (isNaN(baseDeliveryCharge) || isNaN(freeDeliveryThreshold) ||
         isNaN(rapidDeliveryCharge)) {
       return res.status(400).json({
         success: 0,
         message: "All charges must be valid numbers"
       });
     }
-
+ 
     // Create new charges record
     const newCharges = new DeliveryCharges({
       baseDeliveryCharge,
@@ -65,9 +65,9 @@ const updateDeliveryCharges = async (req, res) => {
       rapidDeliveryCharge,
       taxPercentage
     });
-
+ 
     await newCharges.save();
-
+ 
     return res.status(200).json({
       success: 1,
       message: "Delivery charges updated successfully",
@@ -82,7 +82,7 @@ const updateDeliveryCharges = async (req, res) => {
     });
   }
 };
-
+ 
 // Get all delivery charges history (Admin only)
 // Method: GET
 // Endpoint: /admin-delivery-charges/history
@@ -94,9 +94,9 @@ const getDeliveryChargesHistory = async (req, res) => {
       limit: parseInt(limit, 10),
       sort: { lastUpdated: -1 }
     };
-
+ 
     const history = await DeliveryCharges.paginate({}, options);
-
+ 
     return res.status(200).json({
       success: 1,
       message: "Delivery charges history fetched successfully",
@@ -111,9 +111,10 @@ const getDeliveryChargesHistory = async (req, res) => {
     });
   }
 };
-
+ 
 module.exports = {
   getDeliveryCharges,
   updateDeliveryCharges,
   getDeliveryChargesHistory
 };
+ 

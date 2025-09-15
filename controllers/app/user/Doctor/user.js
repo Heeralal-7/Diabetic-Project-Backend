@@ -84,7 +84,41 @@ const getAllDoctor = async (req, res) => {
     const limit = parseInt(process.env.LIMIT);
     const skip = (page - 1) * limit;
 
+    const { latitude, longitude } = req.query;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: 0,
+        message: "Latitude and Longitude are required",
+      });
+    }
+
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+
     const doctorsWithRatings = await Doctor.aggregate([
+      // Filter by nearby location within 5km
+      {
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [lng, lat],
+          },
+          distanceField: "distance",
+          spherical: true,
+          maxDistance: 5000, // 5 km in meters
+        },
+      },
+
+      // Round and add distance (optional)
+      {
+        $addFields: {
+          distance: {
+            $round: [{ $divide: ["$distance", 1000] }, 2], // km
+          },
+        },
+      },
+
       // Join ratings
       {
         $lookup: {
@@ -146,9 +180,10 @@ const getAllDoctor = async (req, res) => {
           phnOtp: 0,
           ratingSum: 0,
           ratingCount: 0,
-          consultationFees: 0, // remove raw array
+          consultationFees: 0,
         },
       },
+
       { $skip: skip },
       { $limit: limit },
     ]);
@@ -172,7 +207,6 @@ const getAllDoctor = async (req, res) => {
     });
   }
 };
-
 
 
 

@@ -1,6 +1,6 @@
 // models/DeliveryCharges.js
 const mongoose = require("mongoose");
-
+ 
 const DeliveryChargesSchema = new mongoose.Schema({
   baseDeliveryCharge: {
     type: Number,
@@ -22,10 +22,17 @@ const DeliveryChargesSchema = new mongoose.Schema({
     required: true,
     default: 2
   },
+  taxinrupess: {
+    type: Number,
+    required: true,
+    default: 0,
+  },
+  
   lastUpdated: {
     type: Date,
     default: Date.now
   }
 });
-
+ 
 module.exports = mongoose.model("DeliveryCharges", DeliveryChargesSchema);
+ 

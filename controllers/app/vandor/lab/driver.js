@@ -26,7 +26,6 @@ const createDriver = async (req, res) => {
       state,
       city,
       password,
-      serviceType, // New field added
     } = req.body;
 
     if (
@@ -76,7 +75,6 @@ const createDriver = async (req, res) => {
       country,
       state,
       city,
-      serviceType, // Save the new field
       password: hashPass,
       image: req.files.image
         ? `/vendor/driver/image/${req.files.image[0].filename}`
@@ -132,79 +130,106 @@ const getDriver = async (req, res) => {
 };
 
 
+// Get Only Online Drivers
+// Method: GET
+// Endpoint: /driver/online
+// const getOnlineDrivers = async (req, res) => {
+//   try {
+//     const onlineDrivers = await Driver.find({
+//       vendorId: req.user._id,
+//       isOnline: true, // ✅ filter only online drivers
+//     });
 
+//     if (!onlineDrivers || onlineDrivers.length === 0) {
+//       return res.send({
+//         success: 0,
+//         message: "No online driver found",
+//         details: [], 
+//       });
+//     }
+
+//     return res.send({
+//       success: 1,
+//       message: "Online drivers fetched successfully",
+//       details: onlineDrivers,
+//     });
+//   } catch (error) {
+//     return res.send({
+//       success: 0,
+//       message: error.message,
+//     });
+//   }
+// };
 
 
 
 // Update Driver
 // Method:Patch
-// EndPoint:/driver/update-driver
+// EndPoint:/update-driver
 const updateDriver = async (req, res) => {
   try {
-    // FIX 2: URL पैरामीटर से ड्राइवर की ID प्राप्त करें
-    const { id } = req.params; 
-    
-    // सभी टेक्स्ट फ़ील्ड्स को req.body से प्राप्त करें
-    const updateData = req.body; 
+    const {
+      name,
+      email,
+      ctrCode,
+      phoneNumber,
+      qualification,
+      vehicleNumber,
+      vehicleType,
+      licenceNumber,
+      aadharCard,
+      address,
+      country,
+      state,
+      city,
+      status, // status 0 for offline and 1 for online
+    } = req.body;
 
-    // 1. वेंडर को प्रमाणित करें (यह पहले से मौजूद है, जो अच्छा है)
-    const vendor = await Vendor.findById(req.user._id);
+    const vendor = await Vendor.findById({ _id: req.user._id });
     if (!vendor) {
-      return res.status(401).send({
+      return res.send({
         success: 0,
         message: "Vendor is not authenticated",
       });
     }
-    
-    // 2. सुनिश्चित करें कि ड्राइवर मौजूद है
-    const driver = await Driver.findById(id);
-    if (!driver) {
-        return res.status(404).send({ success: 0, message: "Driver not found with this ID." });
-    }
 
-    // 3. (अत्यधिक अनुशंसित) सुरक्षा जांच: क्या यह ड्राइवर इसी वेंडर का है?
-    if (driver.vendorId.toString() !== req.user._id.toString()) {
-        return res.status(403).send({ success: 0, message: "Forbidden: You cannot update this driver." });
-    }
+    await Driver.updateOne({
+      name,
+      email,
+      ctrCode,
+      phoneNumber,
+      qualification,
+      vehicleNumber,
+      vehicleType,
+      licenceNumber,
+      aadharCard,
+      address,
+      country,
+      state,
+      city,
+      status,
 
-    // 4. फ़ाइल अपलोड को सही ढंग से संभालें
-    // यदि कोई नई फ़ाइल अपलोड की गई है, तो उसका पाथ updateData में जोड़ें
-    if (req.files) {
-      if (req.files.image) {
-        updateData.image = `/vendor/driver/image/${req.files.image[0].filename}`;
-      }
-      if (req.files.drivingLicence) {
-        // आपके मॉडल में फ़ील्ड का नाम 'drivingLicenceNumber' है
-        updateData.drivingLicenceNumber = `/vendor/driver/drivingLicence/${req.files.drivingLicence[0].filename}`;
-      }
-      if (req.files.rc) {
-        updateData.rc = `/vendor/driver/rc/${req.files.rc[0].filename}`;
-      }
-      if (req.files.certificate) {
-        updateData.certificate = `/vendor/driver/certificate/${req.files.certificate[0].filename}`;
-      }
-    }
+      image: req.files.image
+        ? `/vendor/driver/image/${req.files.image[0].filename}`
+        : Driver.image,
 
-    // 5. ड्राइवर को ID से ढूंढें और अपडेट करें
-    // { new: true } यह सुनिश्चित करता है कि अपडेट किया गया दस्तावेज़ वापस आए
-    const updatedDriver = await Driver.findByIdAndUpdate(
-      id,
-      { $set: updateData }, // $set का उपयोग केवल दिए गए फ़ील्ड को अपडेट करने के लिए करें
-      { new: true, runValidators: true } // नए दस्तावेज़ लौटाएं और स्कीमा सत्यापन चलाएं
-    );
-    
-    if (!updatedDriver) {
-        return res.status(404).send({ success: 0, message: "Update failed, driver not found." });
-    }
+      drivingLicenceNumber: req.files.drivingLicence
+        ? `/vendor/driver/drivingLicence/${req.files.drivingLicence[0].filename}`
+        : Driver.drivingLicenceNumber,
+      rc: req.files.rc
+        ? `/vendor/driver/rc/${req.files.rc[0].filename}`
+        : Driver.rc,
+      certificate: req.files.certificate
+        ? `/vendor/driver/certificate/${req.files.certificate[0].filename}`
+        : Driver.certificate,
+    });
 
     return res.send({
       success: 1,
       message: "Updated successfully",
-      details: updatedDriver, // अपडेटेड ड्राइवर को वापस भेजना अच्छा अभ्यास है
     });
-    
   } catch (error) {
-    return res.status(500).send({
+    return res.send({
       success: 0,
       message: error.message,
     });
@@ -213,7 +238,7 @@ const updateDriver = async (req, res) => {
 
 // Delete Driver
 // Method:delete
-// EndPoint:driver/delete-driver/:id
+// EndPoint:/delete-driver/:id
 const deleteDriver = async (req, res) => {
   try {
     const { id } = req.params;
@@ -630,38 +655,6 @@ const getAllActiveOrder = async (req, res) => {
     });
   }
 };
-
-
-// Get Only Online Drivers
-// Method: GET
-// Endpoint: /driver/online
-// const getOnlineDrivers = async (req, res) => {
-//   try {
-//     const onlineDrivers = await Driver.find({
-//       vendorId: req.user._id,
-//       isOnline: true, // ✅ filter only online drivers
-//     });
-
-//     if (!onlineDrivers || onlineDrivers.length === 0) {
-//       return res.send({
-//         success: 0,
-//         message: "No online driver found",
-//         details: [], 
-//       });
-//     }
-
-//     return res.send({
-//       success: 1,
-//       message: "Online drivers fetched successfully",
-//       details: onlineDrivers,
-//     });
-//   } catch (error) {
-//     return res.send({
-//       success: 0,
-//       message: error.message,
-//     });
-//   }
-// };
 
 
 module.exports = {

@@ -152,11 +152,39 @@ const doctorSchema = new Schema(
       ref: "Clinic",
       default: null,
     },
-   
+    longitude:{
+        type:String,
+        default:""
+      },
+      latitude:{
+        type:String,
+        default:""
+      },
+   location: {
+  type: {
+    type: String,
+    enum: ['Point'],
+    required: true,
+    default: 'Point',
+  },
+  coordinates: {
+    type: [Number], // [longitude, latitude]
+    required: true,
+    default: [0, 0], // optional, or set null and validate
+    validate: {
+      validator: function (value) {
+        return Array.isArray(value) && value.length === 2;
+      },
+      message: 'Coordinates must be [longitude, latitude]',
+    },
+  },
+},
 
   },
   { timestamps: true }
 );
+doctorSchema.index({ location: "2dsphere" });
+
 module.exports = model("Doctor", doctorSchema);
 
 // 

@@ -125,24 +125,28 @@ const VendorSchema = new Schema(
       type: String,
       default: "",
     },
-    description: {
-      type: String,
-      default: "",
+      location: {
+  type: {
+    type: String,
+    enum: ['Point'],
+    required: true,
+    default: 'Point',
+  },
+  coordinates: {
+    type: [Number], // [longitude, latitude]
+    required: true,
+    default: [0, 0], // optional, or set null and validate
+    validate: {
+      validator: function (value) {
+        return Array.isArray(value) && value.length === 2;
+      },
+      message: 'Coordinates must be [longitude, latitude]',
     },
-    latitude: {
-      type: String,
-      default: "",
-    },
-    longitude: {
-      type: String,
-      default: "",
-    },
-    description: {
-      type: String,
-      default: "",
-    },
+  },
+},
   },
   { timestamps: true }
 );
+VendorSchema.index({ location: '2dsphere' });
 
 module.exports = model("vandor", VendorSchema);

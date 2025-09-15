@@ -314,13 +314,9 @@ const deleteCartItem = async (req, res) => {
 
 const getordertype = async (req, res) => {
   try {
-    // Extract vendorId from the authenticated token
-    const vendorId = req.user.id; // Assuming req.user.id holds the vendor's ID after authentication
-
-    // Find all orders with status "0" for the specific vendor
+    // Find all orders with status "0"
     const orders = await FoodOrder.find({
-      status: "0",
-      vendorId: vendorId // Filter by vendorId
+      status: "0"
     })
       .populate("userId")
       .populate("items.FoodItem");
@@ -328,8 +324,8 @@ const getordertype = async (req, res) => {
     // Filter orders where either:
     // 1. There are multiple items (even if each has quantity 1), OR
     // 2. Any single item has quantity > 1
-    const bulkOrders = orders.filter(order =>
-      order.items.length > 1 ||
+    const bulkOrders = orders.filter(order => 
+      order.items.length > 1 || 
       order.items.some(item => item.quantity > 1)
     );
 

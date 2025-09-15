@@ -1,4 +1,5 @@
 const AddMember = require("../../../../modal/AddMembers");
+const Patient = require("../../../../modal/doctorpatient");
 
 // Create Member
 // Method:Post
@@ -8,21 +9,7 @@ const createMember = async (req, res) => {
     const { name, yearOfBirth, phoneNumber, gender, address, city, pinCode } =
       req.body;
 
-    if (
-      !name ||
-      !yearOfBirth ||
-      !phoneNumber ||
-      !gender ||
-      !address ||
-      !city ||
-      !pinCode
-    ) {
-      return res.send({
-        success: 0,
-        message: "Please enter all the required fields",
-      });
-    }
-
+    
     const addNew = await AddMember.create({
       name,
       yearOfBirth,
@@ -37,6 +24,7 @@ const createMember = async (req, res) => {
     return res.send({
       success: 1,
       message: "Member added successfully",
+      details:addNew
     });
   } catch (error) {
     return res.send({
@@ -67,4 +55,38 @@ const getAllMemberOfPatients = async (req, res) => {
   }
 };
 
-module.exports = { createMember, getAllMemberOfPatients };
+// user-add-member/addpatient
+const addpatient = async (req, res) => {
+  try {
+    const { name, dob, phone, gender, address, country, state, city, pinCode,problemDescription } =
+      req.body;
+
+   const details = await Patient.create({
+      name,
+      dob,
+      phone,
+      gender,
+      address,
+      country,
+      state,
+      city,
+      pinCode,
+      pic: req.file ? `/user/lab/pic/${req.file.filename}` : "",
+      problemDescription,
+      userId: req.user._id,
+    });
+
+    return res.send({
+      success: 1,
+      message: "Created successfully",
+   details:details
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+module.exports = { createMember, getAllMemberOfPatients,addpatient };

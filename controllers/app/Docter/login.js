@@ -383,14 +383,17 @@ const registerDoctor = async (req, res) => {
       clinicName,
       password,
       loginType,
-      clinicId
+      clinicId,
+      longitude,
+      latitude
     } = req.body;
 
     // 1) Validate required fields
     if (
       !name || !email || !phoneNumber || !alternatePhoneNumber || !address ||
       !country || !state || !city || !qualification || !specialist ||
-      !experience || !licenceNumber || !password || !loginType
+      !experience || !licenceNumber || !password || !loginType ||
+      !longitude || !latitude
     ) {
       return res.send({
         success: 0,
@@ -483,9 +486,20 @@ const registerDoctor = async (req, res) => {
       signature,
       signatureStatus,
       licenceCertificateStatus,
+      signature,
+      signatureStatus,
       password: hashPass,
       loginType,
       ClinicId: loginType === "clinic" ? clinicId : null,
+      longitude,
+      latitude,
+      location: {
+        type: "Point",
+        coordinates: [
+          parseFloat(longitude),
+          parseFloat(latitude)
+        ]
+      }
     });
 
     // 8) Create document record
@@ -495,6 +509,7 @@ const registerDoctor = async (req, res) => {
       signature: signature,
       doctorId: createDoctor._id,
     });
+
     await Docter.findByIdAndUpdate(createDoctor._id, {
       myDocumentId: docs._id,
     });
@@ -503,7 +518,7 @@ const registerDoctor = async (req, res) => {
     if (loginType === "clinic") {
       await Clinic.findByIdAndUpdate(
         clinicId,
-        { $addToSet: { DoctorId: createDoctor._id } }, // ✅ Prevent duplicate doctorId
+        { $addToSet: { DoctorId: createDoctor._id } },
         { new: true }
       );
     }
@@ -520,6 +535,7 @@ const registerDoctor = async (req, res) => {
     });
   }
 };
+
 
   
 

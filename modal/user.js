@@ -148,11 +148,19 @@ const User = Schema(
       type: String,
       default: "",
     },
+    latitude: {
+    type: String,
+  },
+  longitude: {
+    type: String,
+  },
     chatStatus:{
       type:String,
-      default:""
-    }
-    
+    },
+   banner: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

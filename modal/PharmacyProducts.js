@@ -13,7 +13,7 @@ const pharmacyProductSchema = new mongoose.Schema({
   best_price: String,
   discont_percent: String,
   prescription_required: String,
-  image_url: [String],
+  image_url: String,
   primary_use: String,
   description: String,
   salt_synonyms: String,
@@ -70,11 +70,8 @@ const pharmacyProductSchema = new mongoose.Schema({
   orderCount: {
     type: Number,
     default: 0
-  },
-  onStatus: {
-    type: String,
-    default: "1", // Or Number: 0 or 1
-  },
+  }
+ 
  
 }, {
   timestamps: true,

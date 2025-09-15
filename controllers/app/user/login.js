@@ -69,13 +69,13 @@ const getProfilePercentage = async (user) => {
 // EndPoint:"/login"
 const userRegisterAndLogin = async (req, res) => {
   try {
-    const { ctrCode, number } = req.body;
+    const { ctrCode, number, } = req.body;
     const otp = "1111";
 
     const checkIsExist = await TempOtp.findOne({ ctrCode, number });
 
     if (!checkIsExist) {
-      await TempOtp.create({ ctrCode, number, otp,  });
+      await TempOtp.create({ ctrCode, number, otp, });
     } else {
       await TempOtp.updateOne(
         { _id: checkIsExist._id },
@@ -105,6 +105,11 @@ const verifyUser = async (req, res) => {
   try {
     const { number, otp, ctrCode, regId } = req.body;
 
+    // Convert lat/lng to numbers (or undefined if invalid)
+    const latitude = parseFloat(req.body.latitude);
+    const longitude = parseFloat(req.body.longitude);
+
+    // Find OTP
     const checkOtp = await TempOtp.findOne({ number, ctrCode });
     if (!checkOtp) {
       return res.send({
@@ -113,23 +118,26 @@ const verifyUser = async (req, res) => {
       });
     }
 
-    if (checkOtp.otp !== otp) {
+    // Check OTP
+    if (String(checkOtp.otp) !== String(otp)) {
       return res.send({
         success: 0,
-        message: "Please enter correct otp",
+        message: "Please enter correct OTP",
       });
     }
 
+    // Existing user
     const userExist = await User.findOne({ number, ctrCode });
 
     if (userExist) {
-      // User exists, update regId + return token
       const updatedUser = await User.findByIdAndUpdate(
         userExist._id,
         {
           $set: {
             regId: regId || '',
-          },
+            latitude: isNaN(latitude) ? undefined : latitude,
+            longitude: isNaN(longitude) ? undefined : longitude,
+          }
         },
         { new: true }
       );
@@ -140,50 +148,51 @@ const verifyUser = async (req, res) => {
         details: {
           token: updatedUser.token,
           regId: updatedUser.regId,
-          userId: updatedUser._id,
-          name: updatedUser.name || "",
-        },
-      });
-    } else {
-      // New user: create and set token, referralCode
-      let userCreate = await User.create({
-        number,
-        ctrCode,
-        regId: regId || '',
-      });
-
-      const token = generateToken(userCreate._id);
-      const referralCode = generateReferralCode();
-
-      const finalUser = await User.findByIdAndUpdate(
-        userCreate._id,
-        {
-          $set: {
-            token,
-            referralCode,
-          },
-        },
-        { new: true }
-      );
-
-      return res.send({
-        success: 1,
-        message: "User has been created successfully",
-        details: {
-          token: finalUser.token,
-          referralCode: finalUser.referralCode,
-          regId: finalUser.regId,
         },
       });
     }
+
+    // New user
+    let userCreate = await User.create({
+      number,
+      ctrCode,
+      regId: regId || '',
+      latitude: isNaN(latitude) ? undefined : latitude,
+      longitude: isNaN(longitude) ? undefined : longitude,
+    });
+
+    const token = generateToken(userCreate._id);
+    const referralCode = generateReferralCode();
+
+    const finalUser = await User.findByIdAndUpdate(
+      userCreate._id,
+      {
+        $set: {
+          token,
+          referralCode,
+        },
+      },
+      { new: true }
+    );
+
+    return res.send({
+      success: 1,
+      message: "User has been created successfully",
+      details: {
+        token: finalUser.token,
+        referralCode: finalUser.referralCode,
+        regId: finalUser.regId,
+      },
+    });
+
   } catch (error) {
+    console.error(error);
     return res.send({
       success: 0,
       message: error.message,
     });
   }
 };
-
 
 
 

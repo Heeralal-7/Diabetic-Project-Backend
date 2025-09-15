@@ -8,7 +8,7 @@ const addpatient = async (req, res) => {
     const { name, dob, phone, gender, address, country, state, city, pinCode } =
       req.body;
 
-    await Patient.create({
+   const details = await Patient.create({
       name,
       dob,
       phone,
@@ -25,6 +25,7 @@ const addpatient = async (req, res) => {
     return res.send({
       success: 1,
       message: "Created successfully",
+   details:details
     });
   } catch (error) {
     return res.send({
@@ -33,7 +34,7 @@ const addpatient = async (req, res) => {
     });
   }
 };
-
+  
 //get patient
 //Method:Get
 //Endpoints:/patient/fetch
@@ -86,7 +87,6 @@ const updatePatientAddress = async (req, res) => {
         address,
         state,
         city,
-        pic: req.file ? `/user/lab/pic/${req.file.filename}` : "",
         pinCode,
       },
       { new: true }

@@ -17,6 +17,8 @@ const formatTime = (time) => {
 //image : patient image 
 //gallery image : when patient manually upload the prescription
 //prescription image: when patient upload the prescription from prescription tab
+
+
 const bookUserAppointment = async (req, res) => {
   try {
     const {

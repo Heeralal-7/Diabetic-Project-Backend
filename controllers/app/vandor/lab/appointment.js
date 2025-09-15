@@ -58,18 +58,20 @@ const getAllVendorAppointments = async (req, res) => {
   }
 };
 
+
 // Update appointment
 // Method:Patch
 // EndPoints:/all-appointments/updatestatus
 // type : 1 for accept and  2 for reject
 const updateAppointmentStatus = async (req, res) => {
   try {
-    const { type, appointmentId } = req.body;
+    const { type, appointmentId,rejectionReason } = req.body;
 
     // Find and update the appointment status
     const updatedAppointment = await Appointment.findOneAndUpdate(
       { _id: appointmentId, vendorId: req.user._id },
       { status: type },
+      {rejectionReason:rejectionReason},
       { new: true }
     );
 

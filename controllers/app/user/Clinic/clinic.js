@@ -5,16 +5,76 @@ const Doctor = require("../../../../modal/docter");
 
 const getClinic = async (req, res) => {
   try {
-    const data = await Clinic.find()
-      .populate({
-        path: "SpecialistsId",
-        select: "specialists", // Only return 'name' field along with _id
-      });
+    const { latitude, longitude } = req.query;
+
+ 
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    const clinicsNear = await Clinic.aggregate([
+      {
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [lng, lat],
+          },
+          distanceField: "distance", // in meters
+          spherical: true,
+          maxDistance: 5000,
+        },
+      },
+      {
+        $lookup: {
+          from: "specialists", // your collection name in MongoDB
+          localField: "SpecialistsId",
+          foreignField: "_id",
+          as: "SpecialistsId",
+        },
+      },
+      {
+        $addFields: {
+          distance: {
+            $round: [{ $divide: ["$distance", 1000] }, 2], // convert to km and round
+          },
+        },
+      },
+    ]);
 
     return res.send({
       success: 1,
       message: "All clinic data with specialists",
-      details: data,
+      details: clinicsNear, // includes populated SpecialistsId and distance in km
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+
+const getuserclinic = async (req, res) => {
+  try {
+    const clinics = await Clinic.aggregate([
+      {
+        $lookup: {
+          from: "specialists", // your collection name in MongoDB
+          localField: "SpecialistsId",
+          foreignField: "_id",
+          as: "SpecialistsId",
+        },
+      },
+      {
+        $addFields: {
+          distance: null, // No geoNear, so distance is null
+        },
+      },
+    ]);
+
+    return res.send({
+      success: 1,
+      message: "All clinic data with specialists",
+      details: clinics, // same structure as getClinic
     });
   } catch (error) {
     return res.send({
@@ -62,5 +122,5 @@ const getDoctor = async (req, res) => {
 
 
 
-module.exports = {getClinic,getDoctor}
+module.exports = {getClinic,getDoctor,getuserclinic}
 

@@ -3,185 +3,163 @@ const PharmacyProductVendor = require("../../../../modal/PharmacyProductVendor")
 const OrderPharmacy = require("../../../../modal/OrderPharmacy");
 const Vendor = require("../../../../modal/vandor");
 const Driver = require("../../../../modal/driver");
-const Medicine = require("../../../../modal/MedicineSchema");
-const mongoose = require("mongoose");
-
-
- // Create hospital product service
-// Method: Post
-// Endpoint: /services/hospital/create
+ 
 // Create hospital product service
 // Method: Post
 // Endpoint: /services/hospital/create
 const addHospitalProduct = async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
-        // 1. Request Body se data nikalein (ab ismein image_url bhi hai)
-        const {
-            categoryName, name, manufacturers, packaging, primaryUse,
-            description, storage, introduction, useOf, benefits,
-            sideEffects, howToUse, howItWorks, safetyAdvice, ifMissed,
-            alternativeBrand, manufacturerAddress,
-            quantity, mrp, discountPercentage, prescriptionRequired,
-            image_url // ⭐⭐⭐ IMAGE URL FIELD ADDED ⭐⭐⭐
-        } = req.body;
-
-        // 2. Zaroori Fields ko Validate Karein
-        const requiredFields = {
-            categoryName, name, manufacturers, packaging, primaryUse, description,
-            storage, introduction, useOf, benefits, sideEffects, howToUse,
-            howItWorks, safetyAdvice, ifMissed, alternativeBrand, manufacturerAddress,
-            quantity, mrp, discountPercentage, prescriptionRequired,
-            image_url // ⭐⭐⭐ VALIDATION ADDED ⭐⭐⭐
-        };
-
-        for (const [key, value] of Object.entries(requiredFields)) {
-            if (value === undefined || value === "") {
-                await session.abortTransaction(); session.endSession();
-                return res.status(400).json({ success: 0, message: `Field '${key}' zaroori hai.` });
-            }
-        }
-        
-        // 3. Vendor Authentication Check (No change)
-        if (!req.user || !req.user._id) {
-            await session.abortTransaction(); session.endSession();
-            return res.status(401).json({ success: 0, message: "Unauthorized: Vendor token nahi mila ya invalid hai." });
-        }
-        const vendorId = req.user._id;
-
-        // 4. Sequential ID Generate Karein (No change)
-        const lastProduct = await PharmacyProduct.findOne().sort({ Id: -1 }).session(session);
-        const newId = (lastProduct && lastProduct.Id) ? parseInt(lastProduct.Id, 10) + 1 : 10001;
-        
-        // 5. ⭐⭐⭐ REMOVED: File Uploads ko Handle Karein ⭐⭐⭐
-        // const photoPaths = req.files && req.files.length > 0 ? req.files.map((file) => `/vendor/photo/${file.filename}`) : [];
-
-        // 5. ⭐⭐⭐ ADDED: Process Image URLs from Text ⭐⭐⭐
-        const imageUrlArray = typeof image_url === 'string' && image_url.trim() !== ''
-            ? image_url.split(',').map(url => url.trim())
-            : [];
-            
-        // 6. Best Price ko Calculate Karein (No change)
-        const numericMrp = parseFloat(mrp);
-        const numericDiscount = parseFloat(discountPercentage);
-        if (isNaN(numericMrp) || isNaN(numericDiscount)) {
-            await session.abortTransaction(); session.endSession();
-            return res.status(400).json({ success: 0, message: "MRP aur discountPercentage valid numbers hone chahiye." });
-        }
-        const calculatedBestPrice = numericMrp * (1 - numericDiscount / 100);
-        const best_price_str = calculatedBestPrice.toFixed(2);
-
-        // 7. PharmacyProduct collection mein naya product object banayein
-        const newPharmacyProduct = new PharmacyProduct({
-            Id: newId,
-            name,
-            manufacturers,
-            salt_composition: "N/A",
-            packaging,
-            mrp: String(numericMrp.toFixed(2)),
-            best_price: best_price_str,
-            discont_percent: `${numericDiscount}%`,
-            prescription_required: prescriptionRequired,
-            image_url: imageUrlArray, // ⭐⭐⭐ USE THE NEW ARRAY ⭐⭐⭐
-            primary_use: primaryUse,
-            description,
-            storage,
-            introduction,
-            use_of: useOf,
-            benefits,
-            side_effect: sideEffects,
-            how_to_use: howToUse,
-            how_works: howItWorks,
-            safety_advise: safetyAdvice,
-            if_miss: ifMissed,
-            alternate_brand: alternativeBrand,
-            manufacturer_address: manufacturerAddress,
-            bread_crumb: `${primaryUse} > ${categoryName}`,
-            url: `/products/${name.toLowerCase().replace(/\s+/g, '-')}-${newId}`,
-            for_sale: "ADD TO CART",
-            onStatus: "0",
-            // Other fields remain the same
-        });
-
-        const savedProduct = await newPharmacyProduct.save({ session });
-
-        // 8. Vendor-Specific Product Data
-        const newPharmacyProductVendor = new PharmacyProductVendor({
-            productId: savedProduct._id,
-            vendorId,
-            stock: quantity,
-            discount_seller: numericDiscount,
-            vendorPrice: best_price_str,
-            sellingPrice: best_price_str,
-            isAvailable: quantity > 0,
-        });
-        await newPharmacyProductVendor.save({ session });
-
-        savedProduct.vendorPrice = newPharmacyProductVendor._id;
-        await savedProduct.save({ session });
-
-        // 9. Transaction Commit
-        await session.commitTransaction();
-        session.endSession();
-
-        // 10. Response
-        return res.status(201).json({
-            success: 1,
-            message: "Hospital product safaltapoorvak banaya gaya. Approval ka intezar hai.",
-            details: savedProduct.toObject(),
-        });
-
-    } catch (error) {
-        // Error Handling
-        await session.abortTransaction();
-        session.endSession();
-        console.error("Add Hospital Product Error:", error);
-        if (error.code === 11000) {
-            return res.status(409).json({ success: 0, message: "Ek product is ID ke saath pehle se hi hai." });
-        }
-        return res.status(500).json({ success: 0, message: "Internal server error", error: error.message });
-    }
-};
+      const {
+        categoryName,
+        name,
+        manufacturers,
+        packaging,
+        primaryUse,
+        description,
+        storage,
+        introduction,
+        useOf,
+        benefits,
+        sideEffects,
+        howToUse,
+        howItWorks,
+        safetyAdvice,
+        ifMissed,
+        alternativeBrand,
+        manufacturerAddress,
+        productType,
+        quantity,
+        mrp,
+        bestPrice,
+        discountPercentage,
+        prescriptionRequired,
+      } = req.body;
   
-// Get hospital products data uploaded from Excel
-// Method: GET
-// Endpoint: /Products/getProducts
-const getHospitalProductsData = async (req, res) => {
-  try {
-    // Pagination parameters from req.query are no longer used for the database query.
-    
-    // Fetch all documents from the PharmacyProduct collection.
-    const products = await PharmacyProduct.find();
-    // Get the total count from the length of the returned array.
-    const totalCount = products.length;
- 
-    if (!products || totalCount === 0) {
-      return res.status(200).json({
+      const requiredFields = {
+        categoryName,
+        name,
+        manufacturers,
+        packaging,
+        primaryUse,
+        description,
+        storage,
+        introduction,
+        useOf,
+        benefits,
+        sideEffects,
+        howToUse,
+        howItWorks,
+        safetyAdvice,
+        ifMissed,
+        alternativeBrand,
+        manufacturerAddress,
+        productType,
+        quantity,
+        mrp,
+        bestPrice,
+        discountPercentage,
+        prescriptionRequired,
+      };
+  
+      for (const [key, value] of Object.entries(requiredFields)) {
+        if (value === undefined || value === "") {
+          return res.status(400).json({
+            success: 0,
+            message: `The field '${key}' is required.`,
+          });
+        }
+      }
+  
+      const photoPaths = req.files.map((file) => `/vendor/photo/${file.filename}`);
+  
+      if (!req.user || !req.user._id) {
+        return res.status(401).json({
+          success: 0,
+          message: "Unauthorized: Vendor token missing or invalid.",
+        });
+      }
+  
+      const data = await HospitalProduct.create({
+        categoryName,
+        name,
+        manufacturers,
+        packaging,
+        primaryUse,
+        description,
+        storage,
+        introduction,
+        useOf,
+        benefits,
+        sideEffects,
+        howToUse,
+        howItWorks,
+        safetyAdvice,
+        ifMissed,
+        alternativeBrand,
+        manufacturerAddress,
+        productType,
+        quantity,
+        mrp,
+        bestPrice,
+        discountPercentage,
+        photo: photoPaths,
+        vendorId: req.user._id,
+        prescriptionRequired,
+      });
+  
+      return res.status(201).json({
+        success: 1,
+        message: "Hospital product created successfully",
+        data,
+      });
+  
+    } catch (error) {
+      console.error("Add Hospital Product Error:", error);
+      return res.status(500).json({
         success: 0,
-        message: "No hospital product records found.",
+        message: "Internal server error",
+        error: error.message,
       });
     }
- 
-    // Return all found products in a single response.
-    return res.status(200).json({
-      success: 1,
-      message: "All hospital products data fetched successfully",
-      totalCount,
-      currentPage: 1, // All data is on a single page.
-      pageSize: totalCount, // The page size is the total number of records.
-      details: products,
-    });
-  } catch (error) {
-    console.error("Get Hospital Products Data Error:", error);
-    return res.status(500).json({
-      success: 0,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
+  };
+  
+  // Get hospital products data uploaded from Excel
+  // Method: GET
+  // Endpoint: /Products/getProducts
+  const getHospitalProductsData = async (req, res) => {
+    try {
+      const { page = 1, limit = 10 } = req.query;
+  
+      const skip = (page - 1) * limit;
+      const [products, totalCount] = await Promise.all([
+        PharmacyProduct.find().skip(parseInt(skip)).limit(parseInt(limit)),
+        PharmacyProduct.countDocuments()
+      ]);
+  
+      if (!products || products.length === 0) {
+        return res.status(200).json({
+          success: 0,
+          message: "No hospital product records found.",
+        });
+      }
+  
+      return res.status(200).json({
+        success: 1,
+        message: "Hospital products data fetched successfully",
+        totalCount,
+        currentPage: parseInt(page),
+        pageSize: parseInt(limit),
+        details: products,
+      });
+    } catch (error) {
+      console.error("Get Hospital Products Data Error:", error);
+      return res.status(500).json({
+        success: 0,
+        message: "Internal server error",
+        error: error.message,
+      });
+    }
+  };
   
   // Update stock and discount for a specific hospital product
   // Method: POST
@@ -310,7 +288,7 @@ const getHospitalProductsData = async (req, res) => {
 // Get Vendor Orders - Same for both delivery types
 const getVendorOrders = async (req, res) => {
   try {
-    const vendorId = req.vendorId || req.body.vendorId || req.query.vendorId;
+    const vendorId = req.vendorId || req.body.vendorId;
  
     if (!vendorId) {
       return res.status(400).json({
@@ -374,7 +352,7 @@ const getVendorOrders = async (req, res) => {
 const acceptVendorOrder = async (req, res) => {
   try {
     const { orderId } = req.body;
-    const vendorId = req.vendorId || req.body.vendorId || req.query.vendorId;
+    const vendorId = req.vendorId || req.body.vendorId;
  
     if (!vendorId || !orderId) {
       return res.status(400).json({
@@ -494,7 +472,7 @@ const getAcceptedVendorOrders = async (req, res) => {
 const rejectVendorOrder = async (req, res) => {
   try {
     const { orderId } = req.body;
-    const vendorId = req.vendorId || req.body.vendorId || req.query.vendorId;
+    const vendorId = req.vendorId || req.body.vendorId;
  
     if (!vendorId || !orderId) {
       return res.status(400).json({
@@ -585,7 +563,7 @@ const getRejectedOrders = async (req, res) => {
 // Endpoint: /Products/available-drivers
 const getAvailableDrivers = async (req, res) => {
   try {
-    const vendorId = req.vendorId || req.body.vendorId || req.query.vendorId;
+    const vendorId = req.vendorId || req.body.vendorId;
  
     if (!vendorId) {
       return res.status(400).json({
@@ -629,7 +607,7 @@ const getAvailableDrivers = async (req, res) => {
 const assignDriverToOrder = async (req, res) => {
   try {
     const { orderId, driverId } = req.body;
-    const vendorId = req.vendorId || req.body.vendorId || req.query.vendorId;
+    const vendorId = req.vendorId || req.body.vendorId;
  
     if (!orderId || !driverId || !vendorId) {
       return res.status(400).json({
@@ -713,7 +691,7 @@ const assignDriverToOrder = async (req, res) => {
  
 // Get pharmacy order with driver details
 // method: GET
-// Endpoint: Products/get-driver-order
+// Endpoint: /Products/get-driver-order
 const getPharmacyOrderWithDriver = async (req, res) => {
   try {
     const { orderId } = req.query;
@@ -752,9 +730,18 @@ const getPharmacyOrderWithDriver = async (req, res) => {
   }
 };
  
+// Get vendor rejected orders
+// Method: GET
+// Endpoint: /Products/rejected-by-user
+// Get vendor rejected orders
+// Method: GET
+// Endpoint: /Products/rejected-by-user
 // Get vendor rejected and delivered orders
 // Method: GET
-// Endpoint: /Products/vendor-order-history
+// Endpoint: /Products/rejected-and-delivered-orders
+// Get vendor rejected and delivered orders
+// Method: GET
+// Endpoint: /Products/rejected-and-delivered-orders
 const getOrderHistory = async (req, res) => {
   try {
     const vendorId = req.vendorId || req.query.vendorId || req.body.vendorId;
@@ -766,6 +753,8 @@ const getOrderHistory = async (req, res) => {
       });
     }
  
+    console.log(`Fetching orders for vendor: ${vendorId}`);
+ 
     // Find orders where:
     // 1. Items include this vendor
     // 2. Status is either 5 (delivered) or 6 (rejected)
@@ -774,21 +763,10 @@ const getOrderHistory = async (req, res) => {
       status: { $in: [5, 6] } // Both delivered and rejected statuses
     })
     .populate("userId", "name phone") // Customer details
-    .populate("driverAssignedId")     // Driver details
-    // --- यहाँ बदलाव किया गया है ---
-    // 1. Products को पॉप्युलेट करें
-    .populate({
-        path: 'items.productId',
-        model: 'PharmacyProduct' // यहाँ अपने Product मॉडल का नाम लिखें
-    })
-    // 2. Medicines को पॉप्युलेट करें
-    .populate({
-        path: 'items.medicineId',
-        model: 'Medicine' // यहाँ अपने Medicine मॉडल का नाम लिखें
-    })
-    .lean() // Convert to plain JavaScript objects for easier manipulation
+    .populate("driverAssignedId", "name phone") // Driver details
     .sort({ updatedAt: -1 }); // Newest first
-
+ 
+    console.log(`Found ${orders.length} orders in DB`);
  
     // Filter only items belonging to this vendor and format the response
     const formattedOrders = orders.map(order => {
@@ -796,15 +774,19 @@ const getOrderHistory = async (req, res) => {
         item => item.vendorId && item.vendorId.toString() === vendorId.toString()
       );
       
+      // If no items belong to this vendor, skip this order
       if (vendorItems.length === 0) {
         return null;
       }
  
       const statusText = order.status === 5 ? "Delivered" : "Rejected";
       
+      // For rejected orders, check both order-level and item-level rejection reasons
       let rejectionReason = "No reason provided";
       if (order.status === 6) {
+        // First try to get from order level
         rejectionReason = order.rejectionReason ||
+                         // Then check if any item has rejection reason
                          vendorItems.find(item => item.rejectionReason)?.rejectionReason ||
                          rejectionReason;
       }
@@ -820,22 +802,19 @@ const getOrderHistory = async (req, res) => {
         updatedAt: order.updatedAt,
         user: order.userId,
         driver: order.driverAssignedId,
-        // --- यहाँ भी सुधार किया गया है ---
-        // अब productId और medicineId में पूरा ऑब्जेक्ट आएगा
         items: vendorItems.map(item => ({
+          productId: item.productId,
           quantity: item.quantity,
-          price: item.totalPrice,
-          itemType: item.itemType,
-          rejectionReason: item.rejectionReason, // आइटम-लेवल रिजेक्शन कारण
-          // यदि आइटम एक प्रोडक्ट है, तो उसकी पूरी जानकारी दिखाएं
-          details: item.itemType === 'product' ? item.productId : item.medicineId
+          price: item.price,
+          // include other item fields as needed
+          rejectionReason: item.rejectionReason // Include item-level rejection reason if exists
         })),
         statusDetails: {
           reason: order.status === 5 ? "Successfully delivered" : rejectionReason,
           statusChangedAt: order.updatedAt
         }
       };
-    }).filter(order => order !== null);
+    }).filter(order => order !== null); // Remove null entries
  
     console.log(`Filtered to ${formattedOrders.length} relevant orders`);
  
@@ -875,7 +854,7 @@ const getAllActiveOrders = async (req, res) => {
       status: { $gte: 2, $lte: 5 },
     })
       .populate("userId", "name phone")
-      .populate("driverAssignedId", "name phoneNumber vehicleNumber")
+      .populate("driverAssignedId", "name phone vehicleNumber")
       .sort({ updatedAt: -1 })
       .lean();
  
@@ -896,7 +875,6 @@ const getAllActiveOrders = async (req, res) => {
         orderId: order.orderId,
         user: order.userId,
         driver: order.driverAssignedId,
-        phone: order.driverAssignedId?.phoneNumber || order.driverAssignedId?.phone || "N/A", 
         deliveryAddress: order.deliveryAddress,
         status: order.status,
         statusText: statusMap[order.status] || "Unknown",

@@ -4,20 +4,11 @@ const PharmacyProduct = require("../../../../modal/PharmacyProducts");
 const PharmacyProductVendor = require("../../../../modal/PharmacyProductVendor");
 const Medicine = require("../../../../modal/MedicineSchema");
 const PharmacyMedicine = require("../../../../modal/VendorMedicine");
-// const DeliveryCharges = require("../../models/DeliveryCharges");
-
- const DeliveryCharges = require("../../../../modal/DeliveryCharges");
-
+ 
 const CartPharmacy = require("../../../../modal/CartPharmacy");
 const OrderPharmacy = require("../../../../modal/OrderPharmacy");
  
 const Available = require("../../../../modal/availability");
-const ShopTiming = require("../../../../modal/ShopTiming");
-const Coupon = require("../../../../modal/Coupon");
-const moment = require("moment");
-const mongoose = require('mongoose');
-const { ObjectId } = mongoose.Types;
-
  
 // Get all pharmacy
 // Method: Get
@@ -45,63 +36,10 @@ const shopsNear = async (req, res) => {
     const pharmacyDetails = await Promise.all(
       user.map(async (vendor) => {
         const tests = await Service.find({ vendorId: vendor._id });
-        const timings = await ShopTiming.find({ shopId: vendor._id }); // Get shop timings
-
+ 
         return {
           ...vendor._doc,
           tests,
-          description: vendor.description || "", // Add description
-          timings: timings.length > 0 ? timings : [ // Add timings or default
-            {
-              day: "Monday",
-              openingTime: "09:00 AM",
-              closingTime: "06:00 PM",
-              isClosed: false,
-              description: "Regular business hours"
-            },
-            {
-              day: "Tuesday",
-              openingTime: "09:00 AM",
-              closingTime: "06:00 PM",
-              isClosed: false,
-              description: "Regular business hours"
-            },
-            {
-              day: "Wednesday",
-              openingTime: "09:00 AM",
-              closingTime: "06:00 PM",
-              isClosed: false,
-              description: "Regular business hours"
-            },
-            {
-              day: "Thursday",
-              openingTime: "09:00 AM",
-              closingTime: "06:00 PM",
-              isClosed: false,
-              description: "Regular business hours"
-            },
-            {
-              day: "Friday",
-              openingTime: "09:00 AM",
-              closingTime: "06:00 PM",
-              isClosed: false,
-              description: "Regular business hours"
-            },
-            {
-              day: "Saturday",
-              openingTime: "09:00 AM",
-              closingTime: "06:00 PM",
-              isClosed: false,
-              description: "Regular business hours"
-            },
-            {
-              day: "Sunday",
-              openingTime: "Closed",
-              closingTime: "06:00 PM",
-              isClosed: true,
-              description: "Regular business hours"
-            }
-          ]
         };
       })
     );
@@ -124,8 +62,7 @@ const shopsNear = async (req, res) => {
 // Endpoints: /shops/getProducts
 const getAvailableProducts = async (req, res) => {
   try {
-    const vendorStock = await PharmacyProductVendor.find({ stock: { $gt: 0 } })
-     .populate('vendorId', 'name latitude longitude');;
+    const vendorStock = await PharmacyProductVendor.find({ stock: { $gt: 0 } });
  
     const productVendorMap = {};
  
@@ -160,10 +97,7 @@ const getAvailableProducts = async (req, res) => {
             vendorId: vendorEntry.vendorId,
             vendorPrice: finalPrice.toFixed(2),
             discount: discount,
-            stock: vendorEntry.stock,
-            vendorName: vendorEntry.vendorId?.name, // accessing populated vendor name
-            latitude: vendorEntry.vendorId?.latitude, // accessing populated latitude
-            longitude: vendorEntry.vendorId?.longitude, //
+            stock: vendorEntry.stock
           };
         }
       });
@@ -172,9 +106,6 @@ const getAvailableProducts = async (req, res) => {
         ...product.toObject(),
         totalStock,
         vendorId: bestVendor.vendorId,
-        vendorName: bestVendor.vendorName,
-        latitude: bestVendor.latitude,
-        longitude: bestVendor.longitude,
         vendorPrice: bestVendor.vendorPrice,
         discount: bestVendor.discount,
         stockFromVendor: bestVendor.stock
@@ -203,11 +134,10 @@ const getAvailableProducts = async (req, res) => {
 // Endpoint: /shops/medicine/getMedicines
 const getAvailableMedicines = async (req, res) => {
   try {
-    const vendorStock = await PharmacyMedicine.find({ stock: { $gt: 0 } })
-      .populate('vendorId', 'name latitude longitude');
-
+    const vendorStock = await PharmacyMedicine.find({ stock: { $gt: 0 } });
+ 
     const medicineVendorMap = {};
-
+ 
     vendorStock.forEach((entry) => {
       const medicineId = entry.medicineId.toString();
       if (!medicineVendorMap[medicineId]) {
@@ -215,70 +145,64 @@ const getAvailableMedicines = async (req, res) => {
       }
       medicineVendorMap[medicineId].push(entry);
     });
-
+ 
     const medicineIds = Object.keys(medicineVendorMap);
-
+ 
     const [serviceMedicines, generalMedicines] = await Promise.all([
       Service.find({ _id: { $in: medicineIds } }),
       Medicine.find({ _id: { $in: medicineIds } }),
     ]);
-
+ 
     const serviceMedicinesWithSource = serviceMedicines.map((med) => ({
       ...med.toObject(),
       source: "service",
     }));
-
+ 
     const generalMedicinesWithSource = generalMedicines.map((med) => ({
       ...med.toObject(),
       source: "general",
     }));
-
+ 
     const allMedicines = [...serviceMedicinesWithSource, ...generalMedicinesWithSource];
-
+ 
     const finalMedicines = allMedicines.map((medicine) => {
       const vendors = medicineVendorMap[medicine._id.toString()];
       let totalStock = 0;
       let bestVendor = null;
       let lowestPrice = Infinity;
-
+ 
       vendors.forEach((vendorEntry) => {
         totalStock += vendorEntry.stock;
-
+ 
         const basePrice = medicine.source === "service"
           ? parseFloat(medicine.bestPrice || "0")
           : parseFloat(medicine.best_price || "0");
-
+ 
         const discount = vendorEntry.discount_seller || 0;
         const discountAmount = (basePrice * discount) / 100;
         const finalPrice = basePrice - discountAmount;
-
+ 
         if (finalPrice < lowestPrice) {
           lowestPrice = finalPrice;
           bestVendor = {
             vendorId: vendorEntry.vendorId,
             vendorPrice: finalPrice.toFixed(2),
             discount: discount,
-            stock: vendorEntry.stock,
-            name: vendorEntry.vendorId?.name,
-            latitude: vendorEntry.vendorId?.latitude,
-            longitude: vendorEntry.vendorId?.longitude
+            stock: vendorEntry.stock
           };
         }
       });
-
+ 
       return {
         ...medicine,
         totalStock,
         vendorId: bestVendor.vendorId,
         vendorPrice: bestVendor.vendorPrice,
         discount: bestVendor.discount,
-        stockFromVendor: bestVendor.stock,
-        vendorName: bestVendor.name,
-        latitude: bestVendor.latitude,
-        longitude: bestVendor.longitude
+        stockFromVendor: bestVendor.stock
       };
     });
-
+ 
     return res.status(200).json({
       success: 1,
       message: "Available medicines fetched successfully",
@@ -332,7 +256,7 @@ const getVendorsByProduct = async (req, res) => {
     const vendorsWithDetails = await Promise.all(
       vendorEntries.map(async (entry) => {
         const vendor = await Vendor.findById(entry.vendorId).select(
-          "name email phone shopName address latitude longitude"  // Include latitude and longitude
+          "name email phone shopName address"
         );
  
         const basePrice = parseFloat(product.best_price || "0");
@@ -349,8 +273,6 @@ const getVendorsByProduct = async (req, res) => {
           stock: entry.stock,
           discount: entry.discount_seller,
           vendorPrice: finalPrice,
-          latitude: vendor.latitude,
-          longitude: vendor.longitude,
         };
       })
     );
@@ -415,7 +337,7 @@ const getVendorsByMedicine = async (req, res) => {
     const vendorsWithDetails = await Promise.all(
       vendorEntries.map(async (entry) => {
         const vendor = await Vendor.findById(entry.vendorId).select(
-          "name email phone shopName address latitude longitude"  // Include latitude and longitude
+          "name email phone shopName address"
         );
  
         const basePrice = medicine.source === "service"
@@ -435,8 +357,6 @@ const getVendorsByMedicine = async (req, res) => {
           stock: entry.stock,
           discount: entry.discount_seller,
           vendorPrice: finalPrice,
-          latitude: vendor.latitude,
-          longitude: vendor.longitude,
         };
       })
     );
@@ -633,18 +553,18 @@ const addToCart = async (req, res) => {
 // Endpoint: /shops/vendor/products
 const getVendorProducts = async (req, res) => {
   try {
-    const userId = req.user?._id || req.userId || req.query.userId || req.body.userId;
-
+    const userId = req.user?._id || req.userId || req.query.userId;
+ 
     if (!userId) {
       return res.status(400).json({
         success: 0,
         message: "User ID is required",
       });
     }
-
+ 
     // Find user's cart items to determine the vendor
     const cartItems = await CartPharmacy.find({ userId });
-
+ 
     if (cartItems.length === 0) {
       return res.status(200).json({
         success: 1,
@@ -652,42 +572,37 @@ const getVendorProducts = async (req, res) => {
         data: [],
       });
     }
-
+ 
     // All cart items should be from the same vendor (enforced by cart logic)
     const vendorId = cartItems[0].vendorId;
-
-    // Get vendor details
-    const vendor = await Vendor.findById(vendorId, 'name latitude longitude');
-
+ 
     // Get all products from this vendor with stock > 0
     const vendorProducts = await PharmacyProductVendor.find({
       vendorId,
       stock: { $gt: 0 }
     }).populate('productId');
-
+ 
     // Format response
     const products = vendorProducts.map(item => {
       const basePrice = parseFloat(item.productId.best_price || "0");
       const discount = item.discount_seller || 0;
       const vendorPrice = basePrice - (basePrice * discount) / 100;
-
+      
+ 
       return {
         productId: item.productId._id,
         name: item.productId.name,
         description: item.productId.description,
-        image: item.productId.image_url,
+        image: item.productId.image,
         category: item.productId.category,
         basePrice: basePrice,
         discount: discount,
         vendorPrice: vendorPrice.toFixed(2),
         stock: item.stock,
-        vendorId: item.vendorId,
-        vendorName: vendor?.name,
-        latitude: vendor?.latitude,
-        longitude: vendor?.longitude
+        vendorId: item.vendorId
       };
     });
-
+ 
     return res.status(200).json({
       success: 1,
       message: "Vendor products fetched successfully",
@@ -695,7 +610,7 @@ const getVendorProducts = async (req, res) => {
       total: products.length,
       data: products
     });
-
+ 
   } catch (error) {
     console.error("Get Vendor Products Error:", error.message);
     return res.status(500).json({
@@ -712,17 +627,17 @@ const getVendorProducts = async (req, res) => {
 const getVendorMedicines = async (req, res) => {
   try {
     const userId = req.user?._id || req.userId || req.query.userId;
-
+ 
     if (!userId) {
       return res.status(400).json({
         success: 0,
         message: "User ID is required",
       });
     }
-
+ 
     // Find user's cart items to determine the vendor
     const cartItems = await CartPharmacy.find({ userId });
-
+ 
     if (cartItems.length === 0) {
       return res.status(200).json({
         success: 1,
@@ -730,47 +645,44 @@ const getVendorMedicines = async (req, res) => {
         data: [],
       });
     }
-
+ 
     // All cart items should be from the same vendor (enforced by cart logic)
     const vendorId = cartItems[0].vendorId;
-
-    // Get vendor details
-    const vendor = await Vendor.findById(vendorId, 'name latitude longitude');
-
+ 
     // Get all medicines from this vendor with stock > 0
     const vendorMedicines = await PharmacyMedicine.find({
       vendorId,
       stock: { $gt: 0 },
       onStatus: "1"
     });
-
+ 
     // Get medicine details (from both Service and Medicine collections)
     const medicineIds = vendorMedicines.map(item => item.medicineId);
-
+ 
     const [serviceMedicines, generalMedicines] = await Promise.all([
       Service.find({ _id: { $in: medicineIds } }),
       Medicine.find({ _id: { $in: medicineIds } })
     ]);
-
+ 
     // Combine and format response
     const medicines = vendorMedicines.map(item => {
       const medicine = serviceMedicines.find(m => m._id.equals(item.medicineId)) ||
                        generalMedicines.find(m => m._id.equals(item.medicineId));
-
+ 
       if (!medicine) return null;
-
+ 
       const basePrice = medicine.source === "service"
         ? parseFloat(medicine.bestPrice || "0")
         : parseFloat(medicine.best_price || "0");
       
       const discount = item.discount_seller || 0;
       const vendorPrice = basePrice - (basePrice * discount) / 100;
-
+ 
       return {
         productId: item.medicineId,
         name: medicine.name,
         description: medicine.description,
-        image: medicine.image_url,
+        image: medicine.image,
         category: medicine.category,
         manufacturer: medicine.manufacturer,
         basePrice: basePrice,
@@ -778,13 +690,10 @@ const getVendorMedicines = async (req, res) => {
         vendorPrice: vendorPrice.toFixed(2),
         stock: item.stock,
         vendorId: item.vendorId,
-        vendorName: vendor?.name,
-        latitude: vendor?.latitude,
-        longitude: vendor?.longitude,
         type: medicine.source === "service" ? "service" : "general"
       };
     }).filter(item => item !== null);
-
+ 
     return res.status(200).json({
       success: 1,
       message: "Vendor medicines fetched successfully",
@@ -792,7 +701,7 @@ const getVendorMedicines = async (req, res) => {
       total: medicines.length,
       data: medicines
     });
-
+ 
   } catch (error) {
     console.error("Get Vendor Medicines Error:", error.message);
     return res.status(500).json({
@@ -1086,149 +995,77 @@ const removeCartItem = async (req, res) => {
 // Updated Checkout API with Rapid Delivery
 // Updated Checkout API - Allow rapid delivery for any order (no vendor eligibility check)
 // Checkout API - No vendor or driver checks for rapid delivery
-// Updated Checkout API
-// Updated Checkout API with proper coupon validation
 const checkout = async (req, res) => {
   try {
-    console.log('Checkout request received:', req.body);
     const {
       userId,
       cartIds = [],
       productId,
       vendorId,
       quantity,
-      isRapidDelivery = false,
-      couponCode = null
+      isRapidDelivery = false
     } = req.body;
-
-    // Validate required fields
-    if (!userId) {
+ 
+    // Validate input
+    if (!userId || (cartIds.length === 0 && (!productId || !vendorId || !quantity))) {
       return res.status(400).json({
         success: 0,
-        message: "User ID is required"
+        message: "Invalid request parameters. Either cartIds OR productId+vendorId+quantity required"
       });
     }
-
-    // Validate either cart items or single product
-    if (cartIds.length === 0 && (!productId || !vendorId || !quantity)) {
-      return res.status(400).json({
-        success: 0,
-        message: "Either cart items or product details must be provided"
-      });
-    }
-
-    // Get delivery settings with fallback defaults
-    const deliverySettings = await DeliveryCharges.findOne().sort({ lastUpdated: -1 }).lean() || {
-      baseDeliveryCharge: 60,
-      freeDeliveryThreshold: 300,
-      rapidDeliveryCharge: 100,
-      taxPercentage: 2
-    };
-
-    const {
-      baseDeliveryCharge = 60,
-      freeDeliveryThreshold = 300,
-      rapidDeliveryCharge = 100,
-      taxPercentage = 2
-    } = deliverySettings;
-
+ 
     let items = [];
     let usingCart = cartIds.length > 0;
     let vendorIds = new Set();
-    let couponDetails = null;
-    let couponDiscount = 0;
-    let orderVendorId = null;
-
-    // PROCESS ITEMS
+ 
     if (usingCart) {
-      // Convert string IDs to ObjectId with proper error handling
-      let cartObjectIds;
-      try {
-        cartObjectIds = cartIds.map(id => new ObjectId(id));
-      } catch (idError) {
-        return res.status(400).json({
-          success: 0,
-          message: "Invalid cart item IDs",
-          invalidIds: cartIds.filter(id => !ObjectId.isValid(id))
-        });
-      }
-
       const cartItems = await CartPharmacy.find({
-        _id: { $in: cartObjectIds },
-        userId: new ObjectId(userId)
+        _id: { $in: cartIds },
+        userId
       })
       .populate("productId")
       .populate("medicineId")
       .populate("vendorId");
-
+ 
       if (cartItems.length !== cartIds.length) {
-        const foundIds = cartItems.map(item => item._id.toString());
-        const missingIds = cartIds.filter(id => !foundIds.includes(id));
-        
         return res.status(400).json({
           success: 0,
-          message: "Some cart items not found",
-          missingCartIds: missingIds,
-          foundItems: foundIds
+          message: "Some cart items not found"
         });
       }
-
-      // Set orderVendorId from first cart item
-      if (!cartItems[0]?.vendorId?._id) {
-        return res.status(400).json({
-          success: 0,
-          message: "Could not determine vendor from cart items"
-        });
-      }
-      orderVendorId = cartItems[0].vendorId._id;
-
-      // Process each cart item
+ 
       for (const item of cartItems) {
-        // Verify all items are from the same vendor
-        if (!item.vendorId || !item.vendorId._id.equals(orderVendorId)) {
-          return res.status(400).json({
-            success: 0,
-            message: "All cart items must be from the same vendor",
-            expectedVendor: orderVendorId.toString(),
-            foundVendor: item.vendorId?._id?.toString() || 'unknown'
-          });
-        }
-
         const isMedicine = !!item.medicineId;
         const itemId = isMedicine ? item.medicineId._id : item.productId._id;
         vendorIds.add(item.vendorId._id.toString());
-
+ 
         let stockEntry;
-        try {
-          if (isMedicine) {
-            stockEntry = await PharmacyMedicine.findOne({
-              vendorId: item.vendorId._id,
-              medicineId: itemId,
-              stock: { $gte: item.quantity }
-            });
-          } else {
-            stockEntry = await PharmacyProductVendor.findOne({
-              vendorId: item.vendorId._id,
-              productId: itemId,
-              stock: { $gte: item.quantity }
-            });
-          }
-        } catch (dbError) {
-          console.error('Stock lookup error:', dbError);
-          return res.status(500).json({
-            success: 0,
-            message: "Error checking product availability"
+        if (isMedicine) {
+          stockEntry = await PharmacyMedicine.findOne({
+            vendorId: item.vendorId._id,
+            medicineId: itemId,
+            stock: { $gte: item.quantity }
+          });
+        } else {
+          stockEntry = await PharmacyProductVendor.findOne({
+            vendorId: item.vendorId._id,
+            productId: itemId,
+            stock: { $gte: item.quantity }
           });
         }
-
+ 
         if (!stockEntry) {
           return res.status(400).json({
             success: 0,
-            message: `Insufficient stock for ${isMedicine ? item.medicineId?.name : item.productId?.name}`,
-            itemId: itemId.toString()
+            message: `Insufficient stock for ${isMedicine ? item.medicineId.name : item.productId.name}`,
+            item: {
+              name: isMedicine ? item.medicineId.name : item.productId.name,
+              requested: item.quantity,
+              available: stockEntry?.stock || 0
+            }
           });
         }
-
+ 
         const basePrice = parseFloat(
           isMedicine
             ? (item.medicineId.source === "service"
@@ -1240,11 +1077,11 @@ const checkout = async (req, res) => {
         const discount = stockEntry.discount_seller || 0;
         const finalPrice = basePrice * (1 - discount / 100);
         const total = finalPrice * item.quantity;
-
+ 
         items.push({
           itemType: isMedicine ? "medicine" : "product",
           itemId,
-          itemName: isMedicine ? item.medicineId?.name : item.productId?.name,
+          itemName: isMedicine ? item.medicineId.name : item.productId.name,
           vendorId: item.vendorId._id,
           vendorName: item.vendorId.shopName,
           quantity: item.quantity,
@@ -1255,16 +1092,6 @@ const checkout = async (req, res) => {
         });
       }
     } else {
-      // Process single product
-      try {
-        orderVendorId = new ObjectId(vendorId);
-      } catch (error) {
-        return res.status(400).json({
-          success: 0,
-          message: "Invalid vendor ID format"
-        });
-      }
-
       let productDetails = await PharmacyProduct.findById(productId);
       let isMedicine = false;
       
@@ -1276,47 +1103,39 @@ const checkout = async (req, res) => {
         productDetails = serviceMed || generalMed;
         isMedicine = true;
       }
-
+ 
       if (!productDetails) {
         return res.status(404).json({
           success: 0,
           message: "Product/Medicine not found"
         });
       }
-
-      const vendor = await Vendor.findById(orderVendorId);
+ 
+      const vendor = await Vendor.findById(vendorId);
       if (!vendor) {
         return res.status(404).json({
           success: 0,
           message: "Vendor not found"
         });
       }
-
-      vendorIds.add(orderVendorId.toString());
-
+ 
+      vendorIds.add(vendorId);
+ 
       let stockEntry;
-      try {
-        if (isMedicine) {
-          stockEntry = await PharmacyMedicine.findOne({
-            vendorId: orderVendorId,
-            medicineId: productId,
-            stock: { $gte: quantity }
-          });
-        } else {
-          stockEntry = await PharmacyProductVendor.findOne({
-            vendorId: orderVendorId,
-            productId: productId,
-            stock: { $gte: quantity }
-          });
-        }
-      } catch (dbError) {
-        console.error('Stock lookup error:', dbError);
-        return res.status(500).json({
-          success: 0,
-          message: "Error checking product availability"
+      if (isMedicine) {
+        stockEntry = await PharmacyMedicine.findOne({
+          vendorId,
+          medicineId: productId,
+          stock: { $gte: quantity }
+        });
+      } else {
+        stockEntry = await PharmacyProductVendor.findOne({
+          vendorId,
+          productId,
+          stock: { $gte: quantity }
         });
       }
-
+ 
       if (!stockEntry) {
         return res.status(400).json({
           success: 0,
@@ -1325,7 +1144,7 @@ const checkout = async (req, res) => {
           available: stockEntry?.stock || 0
         });
       }
-
+ 
       const basePrice = parseFloat(
         isMedicine
           ? (productDetails.source === "service"
@@ -1337,12 +1156,12 @@ const checkout = async (req, res) => {
       const discount = stockEntry.discount_seller || 0;
       const finalPrice = basePrice * (1 - discount / 100);
       const total = finalPrice * quantity;
-
+ 
       items.push({
         itemType: isMedicine ? "medicine" : "product",
         itemId: productId,
         itemName: productDetails.name,
-        vendorId: orderVendorId,
+        vendorId,
         vendorName: vendor.shopName,
         quantity,
         unitPrice: basePrice,
@@ -1351,286 +1170,291 @@ const checkout = async (req, res) => {
         totalPrice: parseFloat(total.toFixed(2))
       });
     }
-
-    // COUPON VALIDATION
-    if (couponCode) {
-      try {
-        couponDetails = await Coupon.findOne({
-          couponCode: couponCode.trim(),
-          status: "1"
-        }).lean();
-
-        if (!couponDetails) {
-          return res.status(400).json({
-            success: 0,
-            message: "Invalid coupon code"
-          });
-        }
-
-        // Check expiration date
-        const currentDate = moment();
-        const expireDate = moment(couponDetails.expireDate, "DD/MM/YYYY");
-        
-        if (expireDate.isBefore(currentDate, 'day')) {
-          return res.status(400).json({
-            success: 0,
-            message: "This coupon has expired"
-          });
-        }
-
-        // Vendor-specific coupon validation
-        if (couponDetails.vendorId && !new ObjectId(couponDetails.vendorId).equals(orderVendorId)) {
-          return res.status(400).json({
-            success: 0,
-            message: "This coupon is not valid for the selected vendor",
-            debug: {
-              couponVendor: couponDetails.vendorId.toString(),
-              orderVendor: orderVendorId.toString()
-            }
-          });
-        }
-      } catch (couponError) {
-        console.error('Coupon validation error:', couponError);
-        return res.status(400).json({
-          success: 0,
-          message: "Error validating coupon",
-          error: couponError.message
-        });
-      }
-    }
-
-    // CALCULATE TOTALS
+ 
     const subTotal = parseFloat(items.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2));
-    
-    // Apply coupon discount if valid
-    if (couponDetails) {
-      if (couponDetails.percentageDiscount && couponDetails.percentageDiscount !== "") {
-        couponDiscount = subTotal * (parseFloat(couponDetails.percentageDiscount) / 100);
-      } else if (couponDetails.fixedAmountDiscount && couponDetails.fixedAmountDiscount !== "") {
-        couponDiscount = Math.min(parseFloat(couponDetails.fixedAmountDiscount), subTotal);
-      }
-      couponDiscount = parseFloat(couponDiscount.toFixed(2));
-    }
-
-    const taxableAmount = subTotal - couponDiscount;
-    const tax = parseFloat((taxableAmount * (taxPercentage / 100)).toFixed(2));
-    
-    // Modified delivery charges calculation - rapid delivery replaces normal delivery
-    const baseDelivery = isRapidDelivery ? 0 : (taxableAmount >= freeDeliveryThreshold ? 0 : baseDeliveryCharge);
-    const rapidDeliveryFee = isRapidDelivery ? rapidDeliveryCharge : 0;
+    const tax = parseFloat((subTotal * 0.02).toFixed(2));
+    const baseDelivery = subTotal >= 300 ? 0 : 50;
+    const rapidDeliveryFee = isRapidDelivery ? 100 : 0;
     const deliveryCharges = parseFloat((baseDelivery + rapidDeliveryFee).toFixed(2));
-    const grandTotal = parseFloat((taxableAmount + tax + deliveryCharges).toFixed(2));
-
+    const grandTotal = parseFloat((subTotal + tax + deliveryCharges).toFixed(2));
+ 
     return res.status(200).json({
       success: 1,
       message: "Checkout processed successfully",
       orderSummary: {
         items,
         subTotal,
-        couponDiscount,
-        couponDetails: couponDetails ? {
-          id: couponDetails._id,
-          code: couponDetails.couponCode,
-          discount: couponDetails.percentageDiscount || couponDetails.fixedAmountDiscount,
-          type: couponDetails.percentageDiscount ? 'percentage' : 'fixed',
-          vendorSpecific: !!couponDetails.vendorId
-        } : null,
         tax,
-        deliveryCharges: baseDelivery, // Normal delivery charge (0 if rapid delivery)
-        rapidDeliveryFee, // Rapid delivery charge (0 if normal delivery)
-        totalDelivery: deliveryCharges, // Combined (will be either rapid or normal)
+        deliveryCharges,
+        rapidDeliveryFee,
         isRapidDelivery,
         grandTotal,
         vendorIds: Array.from(vendorIds)
       }
     });
-
+ 
   } catch (error) {
-    console.error("Checkout Error:", {
-      message: error.message,
-      stack: error.stack,
-      requestBody: req.body
-    });
+    console.error("Checkout Error:", error);
     return res.status(500).json({
       success: 0,
       message: "Internal Server Error",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message
     });
   }
 };
+ 
+ 
 
+ 
 // Confirm Order API - no driver or vendor rapid delivery checks here
-// Updated Confirm Order API
-// Method: POST
-// Endpoint: /shops/confirmOrder
-// Confirm Order API with proper coupon handling
 const confirmOrder = async (req, res) => {
   try {
-    console.log('Confirm order request received:', req.body);
     const {
       userId,
       cartIds = [],
+      productId,
+      vendorId,
+      quantity,
       address,
       timeSlot,
       dateSlot,
       coupon = null,
-      isRapidDelivery = false,
-      orderSummary
+      isRapidDelivery = false
     } = req.body;
-
-    // Validate required fields
-    if (!userId) {
-      return res.status(400).json({ success: 0, message: "User ID is required" });
-    }
-    if (!address) {
-      return res.status(400).json({ success: 0, message: "Delivery address is required" });
-    }
-    if (!timeSlot && !isRapidDelivery) {
-      return res.status(400).json({ success: 0, message: "Delivery time slot is required" });
-    }
-    if (!dateSlot) {
-      return res.status(400).json({ success: 0, message: "Delivery date is required" });
-    }
-    if (!orderSummary) {
-      return res.status(400).json({ success: 0, message: "Order summary is required" });
-    }
-
-    // Verify coupon if provided
-    let couponDetails = null;
-    if (coupon) {
-      couponDetails = await Coupon.findOne({
-        couponCode: coupon.trim(),
-        status: "1"
+ 
+    if (!userId || !address || !timeSlot || !dateSlot ||
+        (cartIds.length === 0 && (!productId || !vendorId || !quantity))) {
+      return res.status(400).json({
+        success: 0,
+        message: "Required: userId, address, timeSlot + (cartIds OR productId+vendorId+quantity)"
       });
-
-      if (!couponDetails) {
-        return res.status(400).json({ 
-          success: 0, 
-          message: "Invalid coupon code",
-          debug: {
-            providedCoupon: coupon,
-            availableCoupons: await Coupon.find({ status: "1" }).select('couponCode -_id')
-          }
-        });
-      }
-
-      // Check expiration
-      const expireDate = moment(couponDetails.expireDate, "DD/MM/YYYY");
-      if (expireDate.isBefore(moment(), 'day')) {
-        return res.status(400).json({ 
-          success: 0, 
-          message: "This coupon has expired",
-          couponExpiry: couponDetails.expireDate,
-          currentDate: moment().format("DD/MM/YYYY")
-        });
-      }
-
-      // Verify coupon matches checkout
-      if (orderSummary.couponDetails && orderSummary.couponDetails.code !== coupon) {
-        return res.status(400).json({ 
-          success: 0, 
-          message: "Coupon doesn't match checkout session",
-          checkoutCoupon: orderSummary.couponDetails.code,
-          confirmCoupon: coupon
-        });
-      }
     }
-
-    // Create order with proper coupon data structure
-    const orderData = {
-      userId: new ObjectId(userId),
-      items: orderSummary.items.map(item => ({
-        productId: item.itemType === 'product' ? new ObjectId(item.itemId) : undefined,
-        medicineId: item.itemType === 'medicine' ? new ObjectId(item.itemId) : undefined,
-        itemName: item.itemName,
-        vendorId: new ObjectId(item.vendorId),
-        vendorName: item.vendorName,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        discount: item.discount,
-        totalPrice: item.totalPrice,
-        itemType: item.itemType
-      })),
+ 
+    let items = [];
+    let usingCart = cartIds.length > 0;
+    let vendorIds = new Set();
+ 
+    if (usingCart) {
+      const cartItems = await CartPharmacy.find({
+        _id: { $in: cartIds },
+        userId
+      })
+      .populate("productId")
+      .populate("medicineId")
+      .populate("vendorId");
+ 
+      if (cartItems.length !== cartIds.length) {
+        return res.status(400).json({
+          success: 0,
+          message: "Some cart items not found"
+        });
+      }
+ 
+      for (const item of cartItems) {
+        const isMedicine = !!item.medicineId;
+        const itemId = isMedicine ? item.medicineId._id : item.productId._id;
+        vendorIds.add(item.vendorId._id.toString());
+ 
+        let stockEntry;
+        if (isMedicine) {
+          stockEntry = await PharmacyMedicine.findOne({
+            vendorId: item.vendorId._id,
+            medicineId: itemId,
+            stock: { $gte: item.quantity }
+          });
+        } else {
+          stockEntry = await PharmacyProductVendor.findOne({
+            vendorId: item.vendorId._id,
+            productId: itemId,
+            stock: { $gte: item.quantity }
+          });
+        }
+ 
+        if (!stockEntry) {
+          return res.status(400).json({
+            success: 0,
+            message: `Insufficient stock for ${isMedicine ? item.medicineId.name : item.productId.name}`,
+            item: {
+              name: isMedicine ? item.medicineId.name : item.productId.name,
+              requested: item.quantity,
+              available: stockEntry?.stock || 0
+            }
+          });
+        }
+ 
+        const basePrice = parseFloat(
+          isMedicine
+            ? (item.medicineId.source === "service"
+                ? item.medicineId.bestPrice || "0"
+                : item.medicineId.best_price || "0")
+            : item.productId.best_price || "0"
+        );
+        
+        const discount = stockEntry.discount_seller || 0;
+        const finalPrice = basePrice * (1 - discount / 100);
+        const total = finalPrice * item.quantity;
+ 
+        items.push({
+          itemType: isMedicine ? "medicine" : "product",
+          itemId,
+          itemName: isMedicine ? item.medicineId.name : item.productId.name,
+          vendorId: item.vendorId._id,
+          vendorName: item.vendorId.shopName,
+          quantity: item.quantity,
+          unitPrice: basePrice,
+          discount,
+          finalPrice: parseFloat(finalPrice.toFixed(2)),
+          totalPrice: parseFloat(total.toFixed(2))
+        });
+ 
+        // Deduct stock
+        stockEntry.stock -= item.quantity;
+        await stockEntry.save();
+      }
+ 
+      // Clear cart
+      await CartPharmacy.deleteMany({ _id: { $in: cartIds } });
+    } else {
+      let productDetails = await PharmacyProduct.findById(productId);
+      let isMedicine = false;
+      
+      if (!productDetails) {
+        const [serviceMed, generalMed] = await Promise.all([
+          Service.findById(productId),
+          Medicine.findById(productId)
+        ]);
+        productDetails = serviceMed || generalMed;
+        isMedicine = true;
+      }
+ 
+      if (!productDetails) {
+        return res.status(404).json({
+          success: 0,
+          message: "Product/Medicine not found"
+        });
+      }
+ 
+      const vendor = await Vendor.findById(vendorId);
+      if (!vendor) {
+        return res.status(404).json({
+          success: 0,
+          message: "Vendor not found"
+        });
+      }
+ 
+      vendorIds.add(vendorId);
+ 
+      let stockEntry;
+      if (isMedicine) {
+        stockEntry = await PharmacyMedicine.findOne({
+          vendorId,
+          medicineId: productId,
+          stock: { $gte: quantity }
+        });
+      } else {
+        stockEntry = await PharmacyProductVendor.findOne({
+          vendorId,
+          productId,
+          stock: { $gte: quantity }
+        });
+      }
+ 
+      if (!stockEntry) {
+        return res.status(400).json({
+          success: 0,
+          message: "Insufficient stock",
+          requested: quantity,
+          available: stockEntry?.stock || 0
+        });
+      }
+ 
+      const basePrice = parseFloat(
+        isMedicine
+          ? (productDetails.source === "service"
+              ? productDetails.bestPrice || "0"
+              : productDetails.best_price || "0")
+          : productDetails.best_price || "0"
+      );
+      
+      const discount = stockEntry.discount_seller || 0;
+      const finalPrice = basePrice * (1 - discount / 100);
+      const total = finalPrice * quantity;
+ 
+      items.push({
+        itemType: isMedicine ? "medicine" : "product",
+        itemId: productId,
+        itemName: productDetails.name,
+        vendorId,
+        vendorName: vendor.shopName,
+        quantity,
+        unitPrice: basePrice,
+        discount,
+        finalPrice: parseFloat(finalPrice.toFixed(2)),
+        totalPrice: parseFloat(total.toFixed(2))
+      });
+ 
+      // Deduct stock
+      stockEntry.stock -= quantity;
+      await stockEntry.save();
+    }
+ 
+    const subTotal = parseFloat(items.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2));
+    const tax = parseFloat((subTotal * 0.02).toFixed(2));
+    const baseDelivery = subTotal >= 300 ? 0 : 50;
+    const rapidDeliveryFee = isRapidDelivery ? 100 : 0;
+    const deliveryCharges = parseFloat((baseDelivery + rapidDeliveryFee).toFixed(2));
+    const grandTotal = parseFloat((subTotal + tax + deliveryCharges).toFixed(2));
+ 
+    // Create order
+    const order = new OrderPharmacy({
+      userId,
+      items,
       address,
       timeSlot: isRapidDelivery ? "Rapid Delivery" : timeSlot,
       dateSlot,
-      coupon: couponDetails ? {
-        id: new ObjectId(couponDetails._id),
-        code: couponDetails.couponCode,
-        discountType: couponDetails.percentageDiscount ? 'percentage' : 'fixed',
-        discountValue: couponDetails.percentageDiscount || couponDetails.fixedAmountDiscount,
-        description: couponDetails.description || `Applied coupon: ${couponDetails.couponCode}`
-      } : undefined,
-      couponDiscount: orderSummary.couponDiscount || 0,
-      subTotal: orderSummary.subTotal,
-      tax: orderSummary.tax,
-      deliveryCharges: orderSummary.deliveryCharges,
-      rapidDeliveryFee: orderSummary.rapidDeliveryFee || 0,
+      coupon,
+      subTotal,
+      tax,
+      deliveryCharges,
+      rapidDeliveryFee,
       isRapidDelivery,
-      grandTotal: orderSummary.grandTotal,
+      grandTotal,
       orderStatus: "confirmed",
       status: 0,
-      vendorIds: orderSummary.vendorIds.map(id => new ObjectId(id))
-    };
-
-    const order = new OrderPharmacy(orderData);
-    const savedOrder = await order.save();
-
-    // Deduct stock
-    await Promise.all(orderSummary.items.map(async (item) => {
-      const Model = item.itemType === "medicine" ? PharmacyMedicine : PharmacyProductVendor;
-      await Model.findOneAndUpdate(
-        {
-          vendorId: new ObjectId(item.vendorId),
-          [item.itemType === "medicine" ? "medicineId" : "productId"]: new ObjectId(item.itemId)
-        },
-        { $inc: { stock: -item.quantity } }
-      );
-    }));
-
-    // Clear cart
-    if (cartIds.length > 0) {
-      await CartPharmacy.deleteMany({
-        _id: { $in: cartIds.map(id => new ObjectId(id)) },
-        userId: new ObjectId(userId)
-      });
-    }
-
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      vendorIds: Array.from(vendorIds)
+    });
+ 
+    await order.save();
+ 
     return res.status(200).json({
       success: 1,
       message: "Order confirmed successfully",
-      orderId: savedOrder._id,
-      grandTotal: savedOrder.grandTotal,
-      deliveryTime: savedOrder.timeSlot,
-      deliveryDate: savedOrder.dateSlot,
-      isRapidDelivery: savedOrder.isRapidDelivery,
-      items: savedOrder.items.map(item => ({
+      orderId: order._id,
+      grandTotal: order.grandTotal,
+      deliveryTime: order.isRapidDelivery ? "Will be assigned soon" : order.timeSlot,
+      deliveryDate: order.dateSlot,
+      isRapidDelivery: order.isRapidDelivery,
+      items: order.items.map(item => ({
         id: item.itemId,
         name: item.itemName,
         quantity: item.quantity,
         price: item.totalPrice
       })),
-      vendorIds: savedOrder.vendorIds,
-      appliedCoupon: couponDetails ? {
-        code: couponDetails.couponCode,
-        discount: couponDetails.percentageDiscount || couponDetails.fixedAmountDiscount,
-        type: couponDetails.percentageDiscount ? 'percentage' : 'fixed'
-      } : null
+      vendorIds: order.vendorIds
     });
-
+ 
   } catch (error) {
-    console.error("Order Confirmation Error:", {
-      message: error.message,
-      stack: error.stack,
-      requestBody: req.body
-    });
+    console.error("Order Confirmation Error:", error);
     return res.status(500).json({
       success: 0,
       message: "Failed to confirm order",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message
     });
   }
 };
+ 
  
  
 // Get vendor availability by ID
@@ -1814,7 +1638,6 @@ const trackOrder = async (req, res) => {
           name: item.itemName,
           quantity: item.quantity,
           price: item.totalPrice
-          
         })),
         subTotal: order.subTotal,
         tax: order.tax,
@@ -1825,7 +1648,6 @@ const trackOrder = async (req, res) => {
         currentStatusText: statusMap[order.status] || "Unknown Status",
         timeSlot: order.timeSlot,
         dateSlot: order.dateSlot,
-        address: order.address,
         placedAt: order.createdAt,
         lastUpdated: order.updatedAt
       }
@@ -1847,38 +1669,11 @@ const trackOrder = async (req, res) => {
 // Endpoint: /shops/medicine/popularMedicines
 const getPopularMedicines = async (req, res) => {
   try {
-    // Find medicines ordered at least 3 times
-    const popularMedicines = await Medicine.aggregate([
-      {
-        $lookup: {
-          from: "orderpharmacies",
-          let: { medicineId: "$_id" },
-          pipeline: [
-            { $unwind: "$items" },
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$items.medicineId", "$$medicineId"] },
-                    { $eq: ["$items.itemType", "medicine"] }
-                  ]
-                }
-              }
-            },
-            { $group: { _id: null, totalOrders: { $sum: "$items.quantity" } } }
-          ],
-          as: "orders"
-        }
-      },
-      {
-        $addFields: {
-          orderCount: { $ifNull: [{ $arrayElemAt: ["$orders.totalOrders", 0] }, 0] }
-        }
-      },
-      { $match: { orderCount: { $gte: 3 } } }, // At least 3 orders
-      { $project: { orders: 0 } }
-    ]);
-
+    // Find all medicines marked as popular
+    const popularMedicines = await Medicine.find({
+      popularCategory: true
+    });
+ 
     if (!popularMedicines || popularMedicines.length === 0) {
       return res.status(200).json({
         success: 1,
@@ -1886,16 +1681,16 @@ const getPopularMedicines = async (req, res) => {
         data: []
       });
     }
-
+ 
     const medicineIds = popularMedicines.map(m => m._id);
-
+ 
     // Get vendor stock information for these medicines
     const vendorStock = await PharmacyMedicine.find({
       medicineId: { $in: medicineIds },
       stock: { $gt: 0 },
       onStatus: "1"
-    }).populate('vendorId', 'name latitude longitude');
-
+    });
+ 
     // Group by medicineId
     const medicineVendorMap = {};
     vendorStock.forEach(entry => {
@@ -1905,7 +1700,7 @@ const getPopularMedicines = async (req, res) => {
       }
       medicineVendorMap[medicineId].push(entry);
     });
-
+ 
     // Format response
     const result = popularMedicines.map(medicine => {
       const vendors = medicineVendorMap[medicine._id.toString()] || [];
@@ -1913,55 +1708,50 @@ const getPopularMedicines = async (req, res) => {
       let totalStock = 0;
       let bestVendor = null;
       let lowestPrice = Infinity;
-
+ 
       vendors.forEach(vendorEntry => {
         totalStock += vendorEntry.stock;
-
+ 
         const basePrice = parseFloat(medicine.best_price || "0");
         const discount = vendorEntry.discount_seller || 0;
         const discountAmount = (basePrice * discount) / 100;
         const finalPrice = basePrice - discountAmount;
-
+ 
         if (finalPrice < lowestPrice) {
           lowestPrice = finalPrice;
           bestVendor = {
-            vendorId: vendorEntry.vendorId?._id,
+            vendorId: vendorEntry.vendorId,
             vendorPrice: finalPrice.toFixed(2),
             discount: discount,
-            stock: vendorEntry.stock,
-            name: vendorEntry.vendorId?.name,
-            latitude: vendorEntry.vendorId?.latitude,
-            longitude: vendorEntry.vendorId?.longitude
+            stock: vendorEntry.stock
           };
         }
       });
-
-      // ⭐ MODIFICATION START: Yahan badlav kiya gaya hai
-      // Pehle medicine ke saare fields ko spread operator (...) se le liya gaya hai.
-      // Fir, usmein calculated vendor details aur stock information ko add kiya gaya hai.
+ 
       return {
-        ...medicine, // Yeh Medicine model ke saare fields ko yahan le aayega
+        medicineId: medicine._id,
+        name: medicine.name,
+        description: medicine.description,
+        image: medicine.image,
+        category: medicine.category,
+        manufacturer: medicine.manufacturer,
+        totalOrders: medicine.orderCount,
         totalStock,
         vendorId: bestVendor?.vendorId,
         vendorPrice: bestVendor?.vendorPrice,
         discount: bestVendor?.discount,
         stockFromVendor: bestVendor?.stock,
-        vendorName: bestVendor?.name,
-        latitude: bestVendor?.latitude,
-        longitude: bestVendor?.longitude,
-        type: "general"
+        type: "general" // Since we're only using Medicine model here
       };
-      // ⭐ MODIFICATION END
-
     }).filter(med => med.vendorId); // Only include medicines with available stock
-
+ 
     return res.status(200).json({
       success: 1,
       message: "Popular medicines fetched successfully",
       total: result.length,
       data: result
     });
-
+ 
   } catch (error) {
     console.error("Get Popular Medicines Error:", error.message);
     return res.status(500).json({
@@ -1972,43 +1762,16 @@ const getPopularMedicines = async (req, res) => {
   }
 };
 
-// Get popular products (ordered at least 3 times)
+
+// Get popular products
 // Method: GET
 // Endpoint: /shops/popularProducts
 const getPopularProducts = async (req, res) => {
   try {
-    // Find products ordered at least 3 times
-    const popularProducts = await PharmacyProduct.aggregate([
-      {
-        $lookup: {
-          from: "orderpharmacies",
-          let: { productId: "$_id" },
-          pipeline: [
-            { $unwind: "$items" },
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$items.productId", "$$productId"] },
-                    { $eq: ["$items.itemType", "product"] }
-                  ]
-                }
-              }
-            },
-            { $group: { _id: null, totalOrders: { $sum: "$items.quantity" } } }
-          ],
-          as: "orders"
-        }
-      },
-      {
-        $addFields: {
-          orderCount: { $ifNull: [{ $arrayElemAt: ["$orders.totalOrders", 0] }, 0] }
-        }
-      },
-      { $match: { orderCount: { $gte: 3 } } }, // At least 3 orders
-      { $project: { orders: 0 } }
-    ]);
-
+    const popularProducts = await PharmacyProduct.find({
+      popularCategory: true
+    }).select('_id name description image category best_price');
+ 
     if (!popularProducts || popularProducts.length === 0) {
       return res.status(200).json({
         success: 1,
@@ -2016,14 +1779,14 @@ const getPopularProducts = async (req, res) => {
         data: []
       });
     }
-
+ 
     // Get vendor stock information for these products
     const productIds = popularProducts.map(p => p._id);
     const vendorStock = await PharmacyProductVendor.find({
       productId: { $in: productIds },
       stock: { $gt: 0 }
-    }).populate('vendorId', 'name latitude longitude');
-
+    });
+ 
     // Format response
     const result = await Promise.all(popularProducts.map(async (product) => {
       const vendors = vendorStock.filter(v => v.productId.toString() === product._id.toString());
@@ -2031,52 +1794,46 @@ const getPopularProducts = async (req, res) => {
       let totalStock = 0;
       let bestVendor = null;
       let lowestPrice = Infinity;
-
+ 
       vendors.forEach(vendorEntry => {
         totalStock += vendorEntry.stock;
-
+ 
         const basePrice = parseFloat(product.best_price || "0");
         const discount = vendorEntry.discount_seller || 0;
         const finalPrice = basePrice * (1 - discount / 100);
-
+ 
         if (finalPrice < lowestPrice) {
           lowestPrice = finalPrice;
           bestVendor = {
-            vendorId: vendorEntry.vendorId?._id,
+            vendorId: vendorEntry.vendorId,
             vendorPrice: finalPrice.toFixed(2),
             discount: discount,
-            stock: vendorEntry.stock,
-            name: vendorEntry.vendorId?.name,
-            latitude: vendorEntry.vendorId?.latitude,
-            longitude: vendorEntry.vendorId?.longitude
+            stock: vendorEntry.stock
           };
         }
       });
-
-      // ⭐ MODIFICATION START: Yahan badlav kiya gaya hai
-      // Pehle product ke saare fields ko spread operator (...) se le liya gaya hai.
-      // Fir, usmein calculated vendor details aur stock information ko add kiya gaya hai.
+ 
       return {
-        ...product, // Yeh PharmacyProduct model ke saare fields ko yahan le aayega
+        productId: product._id,
+        name: product.name,
+        description: product.description,
+        image: product.image,
+        category: product.category,
         totalStock,
         vendorId: bestVendor?.vendorId,
         vendorPrice: bestVendor?.vendorPrice,
         discount: bestVendor?.discount,
-        stockFromVendor: bestVendor?.stock,
-        vendorName: bestVendor?.name,
-        latitude: bestVendor?.latitude,
-        longitude: bestVendor?.longitude
+        stockFromVendor: bestVendor?.stock
       };
-      // ⭐ MODIFICATION END
     }));
-
+ 
     return res.status(200).json({
       success: 1,
       message: "Popular products fetched successfully",
       total: result.length,
       data: result
     });
-
+ 
   } catch (error) {
     console.error("Get Popular Products Error:", error.message);
     return res.status(500).json({
@@ -2088,47 +1845,8 @@ const getPopularProducts = async (req, res) => {
 };
  
  
- // Clear user's cart (remove all items)
-// Method: DELETE
-// Endpoint: /shops/clearCart
-const clearCart = async (req, res) => {
-  try {
-    const { userId } = req.query;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: 0,
-        message: "User ID is required",
-      });
-    }
-
-    // Delete all cart items for this user
-    const result = await CartPharmacy.deleteMany({ userId });
-
-    if (result.deletedCount === 0) {
-      return res.status(200).json({
-        success: 1,
-        message: "Cart was already empty",
-      });
-    }
-
-    return res.status(200).json({
-      success: 1,
-      message: "Cart cleared successfully",
-      deletedCount: result.deletedCount,
-    });
-  } catch (error) {
-    console.error("Clear Cart Error:", error.message);
-    return res.status(500).json({
-      success: 0,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
  
-
-
+ 
 module.exports = {
   shopsNear,
   getAvailableProducts,
@@ -2148,7 +1866,6 @@ module.exports = {
   getVendorMedicines,
   trackOrder,
   getPopularProducts,
-  getPopularMedicines,
-  clearCart
+  getPopularMedicines
 };
  

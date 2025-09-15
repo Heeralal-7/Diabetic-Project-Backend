@@ -36,13 +36,7 @@ const uploadMedicineExcel = async (req, res) => {
           } else {
             const obj = {};
             headers.forEach((h, i) => {
-               if (h === 'image_url' && cells[i]) {
-                // Split the string by a comma to create an array of URLs
-                // .map(url => url.trim()) ensures any extra spaces are removed
-                obj[h] = String(cells[i]).split(',').map(url => url.trim());
-              } else {
-                obj[h] = cells[i] != null ? cells[i] : "";
-              }
+              obj[h] = cells[i] != null ? cells[i] : "";
             });
             batch.push(obj);
           }
@@ -250,81 +244,14 @@ const rejectMedicine = async (req, res) => {
 };
  
  
- // Admin: Delete a medicine
-// Method: DELETE
-// Endpoint: /admin-medicine/delete-medicine/:id
-const deleteMedicine = async (req, res) => {
-    try {
-      const { id } = req.params;
-  
-      const deleted = await Medicine.findByIdAndDelete(id);
-  
-      if (!deleted) {
-        return res.status(404).send({
-          success: 0,
-          message: "Medicine not found",
-        });
-      }
-  
-      return res.send({
-        success: 1,
-        message: "Medicine deleted successfully",
-      });
-    } catch (error) {
-      return res.status(500).send({
-        success: 0,
-        message: error.message,
-      });
-    }
-  };
-
-  
-// Admin: Delete multiple medicines
-// Method: DELETE
-// Endpoint: /admin-medicine/delete-multiple-medicine
-const deleteMultipleMedicine = async (req, res) => {
-    try {
-      const { ids } = req.body;
-  
-      if (!ids || !Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).send({
-          success: 0,
-          message: "Please provide an array of medicine IDs to delete.",
-        });
-      }
-  
-      const result = await Medicine.deleteMany({
-        _id: { $in: ids },
-      });
-  
-      if (result.deletedCount === 0) {
-        return res.status(404).send({
-          success: 0,
-          message: "No medicines found with the provided IDs.",
-        });
-      }
-  
-      return res.send({
-        success: 1,
-        message: `${result.deletedCount} medicines deleted successfully.`,
-      });
-    } catch (error) {
-      return res.status(500).send({
-        success: 0,
-        message: error.message,
-      });
-    }
-  };
-
+ 
  
  
 module.exports = { uploadMedicineExcel, getAllMedicineData ,
   getPendingMedicines,
   approveMedicine,
   rejectMedicine,
-  updateMedicine,
-  deleteMedicine,
-  deleteMultipleMedicine
+  updateMedicine
 };
  
  

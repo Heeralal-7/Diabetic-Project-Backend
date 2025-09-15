@@ -158,133 +158,143 @@ const verifyEmailOtp = async (req, res) => {
 // endpoint - Clinic/register
 // method - post
 // create a new clinic
+
 const registerClinic = async (req, res) => {
   try {
-    const {
-      name,
-      email,
-      phoneNumber,
-      alternatePhoneNumber,
-      address,
-      ctrCode,
-      altphnctrcode,
-      country,
-      state,
-      city,
-      clinicName,
-      password,
-      experience,
-      licenceNumber,
-      councilNumber,
-    } = req.body;
+      const {
+        name,
+        email,
+        phoneNumber,
+        alternatePhoneNumber,
+        address,
+        ctrCode,
+        altphnctrcode,
+        country,
+        state,
+        city,
+        clinicName,
+        password,
+        experience,
+        licenceNumber,
+        councilNumber,
+        longitude,
+        latitude
+      } = req.body;
 
-    // Validate required fields
-    if (
-      !name ||
-      !email ||
-      !phoneNumber ||
-      !alternatePhoneNumber ||
-      !address ||
-      !country ||
-      !state ||
-      !city ||
-      !clinicName ||
-      !password
-    ) {
-      return res.send({
-        success: 0,
-        message: "Please enter all the required fields",
+      // 1) Validate required fields
+      if (
+        !name || !email || !phoneNumber || !alternatePhoneNumber ||
+        !address || !country || !state || !city ||
+        !clinicName || !password ||
+        !longitude || !latitude
+      ) {
+        return res.status(400).json({
+          success: 0,
+          message: "Please enter all the required fields",
+        });
+      }
+
+      // 2) Prevent duplicates
+      const isExist = await Clinic.findOne({
+        $or: [{ email }, { phoneNumber }],
       });
-    }
+      if (isExist) {
+        // clean up uploaded files on duplicate
+        if (req.files) {
+          req.files.image       && fs.unlinkSync(req.files.image[0].path);
+          req.files.certificate && fs.unlinkSync(req.files.certificate[0].path);
+          req.files.licenceImage&& fs.unlinkSync(req.files.licenceImage[0].path);
+        }
+        return res.status(409).json({
+          success: 0,
+          message: "Clinic already exists",
+        });
+      }
 
-    const isExist = await Clinic.findOne({
-      $or: [{ email }, { phoneNumber }],
-    });
+      // 3) Hash password
+      const salt     = await bcrypt.genSalt(10);
+      const hashPass = await bcrypt.hash(password, salt);
 
-    if (isExist) {
+      // 4) Handle file uploads
+      let certificateImage         = "";
+      let licenceCertificate       = "";
+      let CertificateStatus        = "0";
+      let licenceCertificateStatus = "0";
+
       if (req.files) {
-        if (req.files.image) {
-          fs.unlinkSync(req.files.image[0].path);
+        if (req.files.certificate?.[0]) {
+          certificateImage         = `/Clinic/certificateImage/${req.files.certificate[0].filename}`;
+          CertificateStatus        = "1";
         }
-        if (req.files.certificate) {
-          fs.unlinkSync(req.files.certificate[0].path);
-        }
-        if (req.files.licenceImage) {
-          fs.unlinkSync(req.files.licenceImage[0].path);
+        if (req.files.licenceImage?.[0]) {
+          licenceCertificate        = `/Clinic/licenceImage/${req.files.licenceImage[0].filename}`;
+          licenceCertificateStatus  = "1";
         }
       }
-      return res.send({
+
+      // 5) Create clinic document
+      const createClinic = await Clinic.create({
+        name,
+        image: req.files?.image ? `/Clinic/image/${req.files.image[0].filename}` : "",
+        email,
+        phoneNumber,
+        alternatePhoneNumber,
+        address,
+        ctrCode,
+        altphnctrcode,
+        country,
+        state,
+        city,
+        clinicName,
+        certificateImage,
+        CertificateStatus,
+        licenceCertificate,
+        licenceCertificateStatus,
+        password: hashPass,
+        experience,
+        licenceNumber,
+        councilNumber,
+
+        // raw fields
+        longitude,
+        latitude,
+
+        // GeoJSON for geospatial queries
+        location: {
+          type: "Point",
+          coordinates: [
+            parseFloat(longitude),  // longitude first
+            parseFloat(latitude)    // latitude second
+          ]
+        }
+      });
+
+      // 6) Create associated Document record
+      const docs = await Document.create({
+        doctorCertificate: certificateImage,
+        licenceNo:         licenceCertificate,
+        ClinicId:          createClinic._id,
+      });
+
+      // 7) Link back
+      await Clinic.findByIdAndUpdate(
+        createClinic._id,
+        { myDocumentId: docs._id }
+      );
+
+      return res.json({
+        success: 1,
+        message: "Clinic has been registered successfully",
+      });
+
+    } catch (error) {
+      console.error("registerClinic error:", error);
+      return res.status(500).json({
         success: 0,
-        message: "Clinic already exists",
+        message: error.message,
       });
     }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashPass = await bcrypt.hash(password, salt);
-
-    let certificateImage = "";
-    let licenceCertificate = "";
-    let CertificateStatus = "0";
-    let licenceCertificateStatus = "0";
-
-    if (req.files) {
-      if (req.files.certificate && req.files.certificate[0]) {
-        certificateImage = `/Clinic/certificateImage/${req.files.certificate[0].filename}`;
-        CertificateStatus = "1";
-      }
-      if (req.files.licenceImage && req.files.licenceImage[0]) {
-        licenceCertificate = `/Clinic/licenceImage/${req.files.licenceImage[0].filename}`;
-        licenceCertificateStatus = "1";
-      }
-    }
-
-    const createClinic = await Clinic.create({
-      name,
-      image: req.files?.image
-        ? `/Clinic/image/${req.files.image[0].filename}`
-        : "",
-      email,
-      phoneNumber,
-      alternatePhoneNumber,
-      address,
-      ctrCode,
-      altphnctrcode,
-      country,
-      state,
-      city,
-      clinicName,
-      certificateImage,
-      CertificateStatus,
-      licenceCertificate,
-      licenceCertificateStatus,
-      password: hashPass,
-      experience,
-      licenceNumber,
-      councilNumber,
-    });
-
-    let docs = await Document.create({
-      doctorCertificate: certificateImage,
-      licenceNo: licenceCertificate,
-      ClinicId: createClinic._id,
-    });
-
-    await Clinic.findOneAndUpdate(
-      { _id: createClinic._id },
-      { myDocumentId: docs._id }
-    );
-
-    return res.send({
-      success: 1,
-      message: "Clinic has been registered successfully",
-    });
-  } catch (error) {
-    return res.send({
-      success: 0,
-      message: error.message,
-    });
-  }
-};
+}
 
 // Clinic/loginDoctor
 const loginDoctor = async (req, res) => {

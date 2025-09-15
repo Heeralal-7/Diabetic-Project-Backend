@@ -5,5 +5,6 @@ const { adminMiddleware } = require("../../../../middleware/auth");
 router.get("/get", adminMiddleware, getDeliveryCharges);
 router.post("/update", adminMiddleware, updateDeliveryCharges);
 router.get("/history", adminMiddleware, getDeliveryChargesHistory);
-
+ 
 module.exports = router;
+ 
