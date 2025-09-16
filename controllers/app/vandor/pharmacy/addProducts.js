@@ -288,8 +288,8 @@ const addHospitalProduct = async (req, res) => {
 // Get Vendor Orders - Same for both delivery types
 const getVendorOrders = async (req, res) => {
   try {
-    const vendorId = req.vendorId || req.body.vendorId;
- 
+    // const vendorId = req.identity.id || req.body.vendorId;
+    const vendorId = req.user && req.user._id
     if (!vendorId) {
       return res.status(400).json({
         success: 0,
