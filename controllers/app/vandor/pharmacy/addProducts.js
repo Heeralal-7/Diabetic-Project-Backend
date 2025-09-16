@@ -289,7 +289,7 @@ const addHospitalProduct = async (req, res) => {
 const getVendorOrders = async (req, res) => {
   try {
     // const vendorId = req.identity.id || req.body.vendorId;
-    const vendorId = req.user && req.user._id
+    const vendorId = req.user && req.user._id && req.body.vendorId;
     if (!vendorId) {
       return res.status(400).json({
         success: 0,
