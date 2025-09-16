@@ -360,7 +360,8 @@ const loginVendor = async (req, res) => {
       message: "Login successfully.",
       success: 1,
       details: {
-        token,
+        token: token,
+          vendorId:vendor._id,
       },
     });
 
