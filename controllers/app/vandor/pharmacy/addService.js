@@ -307,7 +307,7 @@ const getVendorMedicines = async (req, res) => {
         vendorPrice: updatedPrice,
         source: "service",
       };
-    });
+    }).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));// new code here
  
     const formattedGeneralMeds = generalMeds.map((med) => {
       const vendorEntry = vendorMap[med._id.toString()];

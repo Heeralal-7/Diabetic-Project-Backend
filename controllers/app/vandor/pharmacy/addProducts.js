@@ -262,7 +262,7 @@ const addHospitalProduct = async (req, res) => {
             vendorDiscount: vendorEntry.discount_seller,
             vendorPrice: updatedPrice,
           };
-        });
+        }).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));// new code line for sorting
   
       return res.status(200).json({
         success: 1,
