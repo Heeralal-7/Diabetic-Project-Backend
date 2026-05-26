@@ -8,17 +8,17 @@ const bodyParser = require("body-parser");
 
 const app = express();
 const port = process.env.PORT || 8081;
-const totalCpus = os.cpus().length
+// const totalCpus = os.cpus().length
 
 const dns = require('node:dns/promises');
 dns.setServers(["1.1.1.1", "8.8.8.8"]); // Forces Node to bypass the Windows DNS bug
 
 
-if(cluster.isPrimary){
-  for(let i=0; i<totalCpus; i++){
-    cluster.fork()
-  }
-} else{
+// if(cluster.isPrimary){
+//   for(let i=0; i<totalCpus; i++){
+//     cluster.fork()
+//   }
+// } else{
   
 // Middleware
 app.use(cors());
@@ -261,4 +261,4 @@ app.listen(port, "0.0.0.0", () => {
   console.log(`App is listening at ${IP}:${port}`);
   
 })
-}
+// }
