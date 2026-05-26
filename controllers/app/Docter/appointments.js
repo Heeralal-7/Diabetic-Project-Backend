@@ -55,19 +55,16 @@ const formatTime = (time) => {
 // status : 0 for pending 1 for accepted 2 for rejected 3 for done
 const getAllDoctorAppointments = async (req, res) => {
   try {
+    // Extract query parameters: filter by type/status, with pagination support
     const { type, status, page = 1 } = req.query;
-    const limit = Number(process.env.LIMIT);
-    const pageNumber = +page;
-    const skip = (pageNumber - 1) * limit;
-
-    const matchStage = { _id: req.user._id };
-
-    const appointmentMatch = {};
-    if (status) appointmentMatch["appointments.status"] = status;
-    if (type) appointmentMatch["appointments.type"] = type;
+    
+    // Remove the limit to get all appointments without pagination
+    // const limit = Number(process.env.LIMIT) || 10;
+    // const pageNumber = +page;
+    // const skip = (pageNumber - 1) * limit;
 
     const pipeline = [
-      { $match: matchStage },
+      // Join appointments collection with doctors
       {
         $lookup: {
           from: "appointments",
@@ -76,10 +73,18 @@ const getAllDoctorAppointments = async (req, res) => {
           as: "appointments",
         },
       },
+      // Unwind to deconstruct appointments array into individual documents
       { $unwind: "$appointments" },
-      { $match: appointmentMatch },
+      // Filter appointments: current doctor's appointments with optional status/type filters
+      {
+        $match: {
+          "appointments.doctorId": req.user._id,
+          ...(status && { "appointments.status": status }),
+          ...(type && { "appointments.type": type }),
+        },
+      },
 
-      // User details
+      // Join user details for the appointment
       {
         $lookup: {
           from: "users",
@@ -90,7 +95,7 @@ const getAllDoctorAppointments = async (req, res) => {
       },
       { $unwind: "$userDetails" },
 
-      // Patient details
+      // Join patient details (if exists)
       {
         $lookup: {
           from: "patients",
@@ -102,11 +107,11 @@ const getAllDoctorAppointments = async (req, res) => {
       {
         $unwind: {
           path: "$patientDetails",
-          preserveNullAndEmptyArrays: true,
+          preserveNullAndEmptyArrays: true, // Keep appointments without patient data
         },
       },
 
-      // Prescription details
+      // Join prescription details (if exists)
       {
         $lookup: {
           from: "doctorprescriptions",
@@ -118,11 +123,10 @@ const getAllDoctorAppointments = async (req, res) => {
       {
         $unwind: {
           path: "$prescriptionDetails",
-          preserveNullAndEmptyArrays: true,
+          preserveNullAndEmptyArrays: true, // Keep appointments without prescriptions
         },
       },
-
-      // Insurance details from addInsuranceTypeId in prescription
+      // Join insurance details (if prescription has insurance)
       {
         $lookup: {
           from: "addinsurancetypes",
@@ -134,11 +138,10 @@ const getAllDoctorAppointments = async (req, res) => {
       {
         $unwind: {
           path: "$insuranceDetails",
-          preserveNullAndEmptyArrays: true,
+          preserveNullAndEmptyArrays: true, // Keep appointments without insurance
         },
       },
-
-      // Coupon details
+      // Join coupon details (if appointment used a coupon)
       {
         $lookup: {
           from: "coupons",
@@ -150,11 +153,10 @@ const getAllDoctorAppointments = async (req, res) => {
       {
         $unwind: {
           path: "$couponDetails",
-          preserveNullAndEmptyArrays: true,
+          preserveNullAndEmptyArrays: true, // Keep appointments without coupons
         },
       },
-
-      // Final projection with insurance fields inside prescription
+      // Shape the final response structure
       {
         $project: {
           _id: 0,
@@ -167,34 +169,32 @@ const getAllDoctorAppointments = async (req, res) => {
               "$prescriptionDetails",
               {
                 insuranceName: "$insuranceDetails.addInsurance",
-                insuranceImage: "$insuranceDetails.insuranceImage"
-              }
-            ]
-          }
+                insuranceImage: "$insuranceDetails.insuranceImage",
+              },
+            ],
+          },
         },
       },
-
-      { $skip: skip },
-      { $limit: limit },
+      // Remove pagination stages to get all records
+      // { $skip: skip },
+      // { $limit: limit },
     ];
 
-    const allAppointments = await Doctor.aggregate(pipeline);
+    // Execute aggregation pipeline
+    const allAppointments = await Doctor.aggregate(pipeline)
+    .sort({createdAt:-1});
 
+    // Return successful response with all appointments
     return res.send({
       success: 1,
       message: "All Appointments fetched successfully",
       details: allAppointments,
     });
   } catch (error) {
+    // Handle errors
     return res.send({ success: 0, message: error.message });
   }
 };
-
-
-
-
-
-
 
 // Accept or Reject Appointment
 // Method: Patch
@@ -203,7 +203,7 @@ const getAllDoctorAppointments = async (req, res) => {
 const acceptOrRejctAppointment = async (req, res) => {
   try {
     const { appointmentId, status } = req.query;
-
+ 
     // 1️⃣ Appointment exists?
     const appt = await Appointment.findById(appointmentId);
     if (!appt) {
@@ -212,52 +212,55 @@ const acceptOrRejctAppointment = async (req, res) => {
         message: "No appointment found.",
       });
     }
-
+ 
     // 2️⃣ Valid status?
     if (!["0", "1", "2", "3"].includes(status)) {
       return res.status(400).json({
         success: 0,
-        message:
-          "Status must be 0 (pending), 1 (accepted), 2 (rejected), or 3 (done).",
+        message: "Status must be 0 (pending), 1 (accepted), 2 (rejected), or 3 (done).",
       });
     }
-
+ 
+    // ✅ ADDED: If status is 1 (Accepted), set vendorAcceptedAt
+    if (String(status) === "1") {
+      appt.vendorAcceptedAt = new Date();
+    }
+ 
     // 3️⃣ If marking as done, enforce PrescriptionStatus === "4"
     if (status === "3") {
       const prescription = await doctorPrescription.findOne({
         AppointmentId: new mongoose.Types.ObjectId(appointmentId),
       });
-
-      if (
-        !prescription ||
-        String(prescription.PrescriptionStatus) !== "4"
-      ) {
+ 
+      if (!prescription || String(prescription.PrescriptionStatus) !== "4") {
         return res.status(400).json({
           success: 0,
-          message:
-            "Cannot mark as done. PrescriptionStatus must be 4 before completing.",
+          message: "Cannot mark as done. PrescriptionStatus must be 4 before completing.",
         });
       }
-
+ 
       // 4️⃣ All good → update the PrescriptionStatus to "3"
       prescription.PrescriptionStatus = "3";
       await prescription.save();
-
+ 
       // ✨ Also set clinicStatus to "4" on the appointment
       appt.clinicStatus = "4";
+ 
+      // ✨ Set orderCompletedAt timestamp
+      appt.orderCompletedAt = new Date();
     }
-
+ 
     // 5️⃣ Update appointment status
     appt.status = status;
     await appt.save();
-
+ 
     // 6️⃣ Build response message
     let message = "Appointment ";
     if (status === "1") message += "accepted";
     else if (status === "2") message += "rejected";
     else if (status === "3") message += "marked as done";
     else message += "status updated";
-
+ 
     return res.json({
       success: 1,
       message: `${message} successfully.`,
@@ -271,6 +274,7 @@ const acceptOrRejctAppointment = async (req, res) => {
     });
   }
 };
+ 
 
 
 // Add Prescribe of appointment
@@ -486,6 +490,41 @@ const paymentDone = async (req, res) => {
   }
 };
 
+// Delete Appointment API
+// Method: Delete
+// EndPoint:/appointments/delete
+const deleteAppointment = async (req, res) => {
+  try {
+    const { appointmentId } = req.query;
+
+    if (!appointmentId) {
+      return res.send({
+        success: 0,
+        message: "Appointment ID is required",
+      });
+    }
+
+    const deletedAppointment = await Appointment.findByIdAndDelete(appointmentId);
+
+    if (!deletedAppointment) {
+      return res.send({
+        success: 0,
+        message: "Appointment not found or already deleted",
+      });
+    }
+
+    return res.send({
+      success: 1,
+      message: "Appointment deleted successfully",
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
 
 
 module.exports = {
@@ -494,6 +533,6 @@ module.exports = {
   addPrescribe,
   postPonedAppointment,
   getpayment,
-  paymentDone
+  paymentDone,
+  deleteAppointment // Naya function yahan export kiya gaya hai
 };
-  

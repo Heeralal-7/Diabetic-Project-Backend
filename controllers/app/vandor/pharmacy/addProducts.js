@@ -3,137 +3,168 @@ const PharmacyProductVendor = require("../../../../modal/PharmacyProductVendor")
 const OrderPharmacy = require("../../../../modal/OrderPharmacy");
 const Vendor = require("../../../../modal/vandor");
 const Driver = require("../../../../modal/driver");
- 
+
+
 // Create hospital product service
-// Method: Post
-// Endpoint: /services/hospital/create
+// Method: POST
+// Endpoint: /Products/hospital/create
 const addHospitalProduct = async (req, res) => {
-    try {
-      const {
-        categoryName,
-        name,
-        manufacturers,
-        packaging,
-        primaryUse,
-        description,
-        storage,
-        introduction,
-        useOf,
-        benefits,
-        sideEffects,
-        howToUse,
-        howItWorks,
-        safetyAdvice,
-        ifMissed,
-        alternativeBrand,
-        manufacturerAddress,
-        productType,
-        quantity,
-        mrp,
-        bestPrice,
-        discountPercentage,
-        prescriptionRequired,
-      } = req.body;
-  
-      const requiredFields = {
-        categoryName,
-        name,
-        manufacturers,
-        packaging,
-        primaryUse,
-        description,
-        storage,
-        introduction,
-        useOf,
-        benefits,
-        sideEffects,
-        howToUse,
-        howItWorks,
-        safetyAdvice,
-        ifMissed,
-        alternativeBrand,
-        manufacturerAddress,
-        productType,
-        quantity,
-        mrp,
-        bestPrice,
-        discountPercentage,
-        prescriptionRequired,
-      };
-  
-      for (const [key, value] of Object.entries(requiredFields)) {
-        if (value === undefined || value === "") {
-          return res.status(400).json({
-            success: 0,
-            message: `The field '${key}' is required.`,
-          });
-        }
-      }
-  
-      const photoPaths = req.files.map((file) => `/vendor/photo/${file.filename}`);
-  
-      if (!req.user || !req.user._id) {
-        return res.status(401).json({
+  try {
+    // 1. Get data from request body
+    const {
+      name,
+      manufacturers,
+      packaging,
+      categoryName, // Frontend se aa raha hai
+      primaryUse,
+      description,
+      storage,
+      introduction,
+      useOf,
+      benefits,
+      sideEffects,
+      howToUse,
+      howItWorks,
+      safetyAdvice,
+      ifMissed,
+      alternativeBrand,
+      manufacturerAddress,
+      quantity,
+      mrp,
+      discountPercentage,
+      prescriptionRequired,
+      image_url, // Frontend ab string URL bhej raha hai
+      // Optional fields jo schema me hain par frontend me shayad nahi
+      saltComposition,
+      saltSynonyms
+    } = req.body;
+ 
+    // 2. Validate required fields
+    const requiredFields = { name, manufacturers, mrp };
+    for (const [key, value] of Object.entries(requiredFields)) {
+      if (!value || value === "") {
+        return res.status(400).json({
           success: 0,
-          message: "Unauthorized: Vendor token missing or invalid.",
+          message: `The field '${key}' is required.`,
         });
       }
-  
-      const data = await HospitalProduct.create({
-        categoryName,
-        name,
-        manufacturers,
-        packaging,
-        primaryUse,
-        description,
-        storage,
-        introduction,
-        useOf,
-        benefits,
-        sideEffects,
-        howToUse,
-        howItWorks,
-        safetyAdvice,
-        ifMissed,
-        alternativeBrand,
-        manufacturerAddress,
-        productType,
-        quantity,
-        mrp,
-        bestPrice,
-        discountPercentage,
-        photo: photoPaths,
-        vendorId: req.user._id,
-        prescriptionRequired,
-      });
-  
-      return res.status(201).json({
-        success: 1,
-        message: "Hospital product created successfully",
-        data,
-      });
-  
-    } catch (error) {
-      console.error("Add Hospital Product Error:", error);
-      return res.status(500).json({
+    }
+ 
+    // 3. Handle Images (Priority to JSON string, fallback to uploaded file)
+    let finalImageUrl = "";
+    if (image_url) {
+      // Agar frontend ne direct link bheja hai
+      finalImageUrl = image_url;
+    } else if (req.files && req.files.length > 0) {
+      // Agar future me wapis file upload use karna ho
+      finalImageUrl = `/vendor/photo/${req.files[0].filename}`;
+    }
+ 
+    // 4. Verify Vendor Token
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
         success: 0,
-        message: "Internal server error",
-        error: error.message,
+        message: "Unauthorized: Vendor token missing or invalid.",
       });
     }
-  };
+ 
+    // Calculations
+    const numMrp = parseFloat(mrp);
+    const numDiscount = discountPercentage ? parseFloat(discountPercentage) : 0;
+    const calculatedBestPrice = numMrp * (1 - numDiscount / 100);
+ 
+    // 5. Map req.body to PharmacyProduct Schema fields
+    const newProductData = {
+      name: name,
+      manufacturers: manufacturers,
+      salt_composition: saltComposition || "",
+      packaging: packaging,
+      mrp: mrp,
+      // Best price calculation backend pe secure rehta hai
+      best_price: calculatedBestPrice.toFixed(2),
+      bestPrice: calculatedBestPrice.toFixed(2),
+      discont_percent: discountPercentage,
+      discount_seller: numDiscount,
+      prescription_required: prescriptionRequired,
+      image_url: finalImageUrl,
+      primary_use: primaryUse, // CategoryName ko primary_use me map kar sakte ho ya ignore kar sakte ho
+      description: description,
+      salt_synonyms: saltSynonyms || "",
+      storage: storage,
+      introduction: introduction,
+      use_of: useOf,
+      benefits: benefits,
+      side_effect: sideEffects,
+      how_to_use: howToUse,
+      how_works: howItWorks,
+      safety_advise: safetyAdvice,
+      if_miss: ifMissed,
+      alternate_brand: alternativeBrand,
+      manufacturer_address: manufacturerAddress,
+      for_sale: "true", // Defaulting to true
+      stock: quantity ? parseInt(quantity) : 0,
+      expectedDelivery: "30 Minutes",
+      onStatus: "1",
+      vendorId: req.user._id,
+      // Agar categoryName schema me nahi hai to use bread_crumb me daal sakte hain temporary
+      bread_crumb: categoryName
+    };
+ 
+    // 6. Save to Database
+    const data = await PharmacyProduct.create(newProductData);
+ 
+    return res.status(201).json({
+      success: 1,
+      message: "Hospital product created successfully",
+      data,
+    });
+ 
+  } catch (error) {
+    console.error("Add Hospital Product Error:", error);
+    return res.status(500).json({
+      success: 0,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+ 
   
   // Get hospital products data uploaded from Excel
+  // Method: GET
+  // Endpoint: /Products/getProducts
+// Get hospital products data uploaded from Excel
+  // Method: GET
+  // Endpoint: /Products/getProducts
+ // Get hospital products data uploaded from Excel
   // Method: GET
   // Endpoint: /Products/getProducts
   const getHospitalProductsData = async (req, res) => {
     try {
       const { page = 1, limit = 10 } = req.query;
-  
       const skip = (page - 1) * limit;
+  
+      // --- FINAL QUERY LOGIC ---
+      const query = {
+        // 1. PRIMARY USE CHECK (Case Insensitive)
+        // Ye logic "Hospital Equipment", "Hospital equipment", 
+        // ya agar future me "Medical Equipment" aata hai to usse bhi cover karega.
+        // Hum check kar rahe hain ki primary_use me "Hospital" YA "Medical" shabd ho.
+        primary_use: { $regex: /(Hospital|Medical)/, $options: "i" },
+  
+        // 2. STATUS CHECK
+        // $ne: "1" ka matlab hai status 1 nahi hona chahiye.
+        // Ye "0" ko allow karega (Machine Asthma).
+        // Ye unko bhi allow karega jisme onStatus field hi nahi hai (Oxygen/Otoscope).
+        onStatus: { $ne: "1" } 
+      };
+  
       const [products, totalCount] = await Promise.all([
-        PharmacyProduct.find().skip(parseInt(skip)).limit(parseInt(limit)),
-        PharmacyProduct.countDocuments()
+        PharmacyProduct.find(query)
+          .sort({ createdAt: -1 }) // Sabse naya data sabse upar
+          .skip(parseInt(skip))
+          .limit(parseInt(limit)),
+        PharmacyProduct.countDocuments(query)
       ]);
   
       if (!products || products.length === 0) {
@@ -149,6 +180,7 @@ const addHospitalProduct = async (req, res) => {
         totalCount,
         currentPage: parseInt(page),
         pageSize: parseInt(limit),
+        totalPages: Math.ceil(totalCount / limit),
         details: products,
       });
     } catch (error) {
@@ -288,8 +320,7 @@ const addHospitalProduct = async (req, res) => {
 // Get Vendor Orders - Same for both delivery types
 const getVendorOrders = async (req, res) => {
   try {
-    // const vendorId = req.identity.id || req.body.vendorId;
-    const vendorId = req.user && req.user._id && req.body.vendorId;
+    const vendorId = req.user && req.user._id && req.body.vendorId || req.params.vendorId || req.query.vendorId;
     if (!vendorId) {
       return res.status(400).json({
         success: 0,
@@ -309,7 +340,7 @@ const getVendorOrders = async (req, res) => {
  
     const orders = await OrderPharmacy.find({
       "items.vendorId": vendorId,
-      status: { $in: [0] } // Same status filter
+      status: { $in: [0] } // Pending status
     })
     .populate("userId", "name phone")
     .populate("driverAssignedId", "name phone")
@@ -325,7 +356,9 @@ const getVendorOrders = async (req, res) => {
         ...order,
         items: vendorItems,
         statusText: statusMap[order.status] || "Unknown",
-        isRapidDelivery: order.isRapidDelivery || false // Just show the flag
+        isRapidDelivery: order.isRapidDelivery || false,
+        // ✅ Added Prescription Image
+        prescriptionImage: order.prescriptionImage || order.prescriptionUrl || null 
       };
     });
  
@@ -424,6 +457,7 @@ const getAcceptedVendorOrders = async (req, res) => {
         "items.vendorId": vendorId,
         status: { $gte: 1, $lt: 3 } // Vendor Accepted (1) or Driver Assigned (2)
       })
+      .sort({ createdAt: -1 })
       .populate("userId", "name phone")
       .populate("driverAssignedId", "name phone")
       .lean();
@@ -446,7 +480,9 @@ const getAcceptedVendorOrders = async (req, res) => {
         ...order,
         items: vendorItems,
         statusText: statusMap[order.status] || "Unknown",
-        canReassign: order.status === 2 // Can reassign if driver assigned but not started
+        canReassign: order.status === 2, // Can reassign if driver assigned but not started
+        // ✅ Added Prescription Image
+        prescriptionImage: order.prescriptionImage || order.prescriptionUrl || null 
       };
     });
  
@@ -481,7 +517,8 @@ const rejectVendorOrder = async (req, res) => {
       });
     }
  
-    const order = await OrderPharmacy.findById(orderId);
+    const order = await OrderPharmacy.findById(orderId)
+    .sort({ createdAt: -1 });
  
     if (!order) {
       return res.status(404).json({
@@ -574,6 +611,7 @@ const getAvailableDrivers = async (req, res) => {
  
     // Filter only active/available drivers
     const drivers = await Driver.find({ isActive: true }) // or { status: 1 }
+    .sort({ createdAt: -1 })
       .select("name phone vehicleNumber")
       .lean();
  
@@ -704,6 +742,7 @@ const getPharmacyOrderWithDriver = async (req, res) => {
     }
  
     const order = await OrderPharmacy.findById(orderId)
+    .sort({ createdAt: -1 })
       .populate("items.productId", "name brand description") // pharmacy product fields
       .populate("userId", "name phone email") // user fields
       .populate("driverAssignedId", "name phone vehicleNumber isOnline"); // driver fields
@@ -760,7 +799,7 @@ const getOrderHistory = async (req, res) => {
     // 2. Status is either 5 (delivered) or 6 (rejected)
     const orders = await OrderPharmacy.find({
       "items.vendorId": vendorId,
-      status: { $in: [5, 6] } // Both delivered and rejected statuses
+    
     })
     .populate("userId", "name phone") // Customer details
     .populate("driverAssignedId", "name phone") // Driver details

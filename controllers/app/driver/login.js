@@ -5,6 +5,8 @@ const TempPhone = require("../../../modal/TempPhone");
 const Vendor = require("../../../modal/vandor");
 const Order = require("../../../modal/foodOrder");
 const Appointment = require("../../../modal/Appointment");
+const OrderPharmacy = require("../../../modal/OrderPharmacy");
+const FoodOrder = require("../../../modal/foodOrder");
 
 
 // Generate token
@@ -321,10 +323,12 @@ const toggleDriverStatus = async (req, res) => {
 
 // Get orders assigned to driver
 // Method: GET
+// Sending service type for frontend ref
 // Endpoint: /driver/assigned-orders
+// status 2 means assigned but not yet picked up
 const getAssignedOrders = async (req, res) => {
   try {
-    // Verify driver exists and is authenticated
+    // 1. Verify driver exists
     const driver = await Driver.findById(req.user._id);
     if (!driver) {
       return res.send({
@@ -333,33 +337,74 @@ const getAssignedOrders = async (req, res) => {
       });
     }
 
-    // Find all orders assigned to this driver with status "1" (accepted)
-    const orders = await Order.find({
-      driverId: req.user._id,
-      status: "2" // "2" indicates the order is assigned to the driver
-    })
-    .populate("userId") // Full user details
-    .populate("vendorId") // Full vendor details
-    .populate("driverId") // ✅ Add driver details (self)
-    .populate("items.FoodItem") // food items
+    let orders = [];
+    const serviceType = driver.serviceType || ""; // e.g., "Pharmacy", "Food", "Lab"
 
-      .sort({ createdAt: -1 }); // Newest first
+    // ------------------------------------------
+    // CASE 1: PHARMACY ORDERS
+    // ------------------------------------------
+    if (serviceType.toLowerCase() === "pharmacy") {
+      orders = await OrderPharmacy.find({
+        driverAssignedId: driver._id, // Pharmacy uses 'driverAssignedId'
+        status: 2,                    // Pharmacy uses Number 2
+      })
+      .populate("userId", "name phone address")
+      .populate("items.productId", "name brand")
+      .populate("items.medicineId", "name brand")
+      .populate("vendorId", "name phone address")
+      .sort({ createdAt: -1 });
+    } 
+    
+    // ------------------------------------------
+    // CASE 2: FOOD ORDERS
+    // ------------------------------------------
+    else if (serviceType.toLowerCase() === "food") {
+      orders = await FoodOrder.find({
+        driverId: driver._id,         // Food uses 'driverId'
+        status: "2",                  // Food uses String "2"
+      })
+      .populate("userId", "name phone address")
+      .populate("vendorId", "name phone address")
+      .populate("items.FoodItem", "name price description")
+      .sort({ createdAt: -1 });
+    } 
+    
+    // ------------------------------------------
+    // CASE 3: LAB APPOINTMENTS (Lab Test)
+    // ------------------------------------------
+    else if (serviceType.toLowerCase() === "lab") {
+      orders = await Appointment.find({
+        driverId: driver._id,         // Appointment uses 'driverId'
+        status: "2",                  // Appointment uses String "2" (Assuming same pattern as Food)
+      })
+      .populate("userId", "name phone")
+      .populate("testId", "testName price") // Populate Test details
+      .populate("packageId", "packageName price") // Populate Package details
+      .populate("vendorId", "name phone address") // Lab/Vendor details
+      .populate("patientId", "name age gender")
+      .sort({ createdAt: -1 });
+    }
 
-    if (orders.length === 0) {
+    // ------------------------------------------
+    // RESPONSE HANDLING
+    // ------------------------------------------
+    if (!orders || orders.length === 0) {
       return res.send({
         success: 1,
-        message: "No orders assigned to you currently",
-        details: []
+        message: `No active ${serviceType} orders assigned to you currently`,
+        details: [],
       });
     }
 
     return res.send({
       success: 1,
       message: "Assigned orders fetched successfully",
-      details: orders
+      serviceType: serviceType, // Sending service type for frontend ref
+      details: orders,
     });
 
   } catch (error) {
+    console.error("Error fetching assigned orders:", error);
     return res.send({
       success: 0,
       message: error.message,
@@ -392,248 +437,353 @@ const getAllActiveOrders = async (req, res) => {
   }
 };
 
-
-// Update order status (for driver to mark as picked or delivered)
-// Method: PATCH
-// Endpoint: /driver/start-order/:orderId
+// ==========================================================
+// 1. START ORDER (food,pharmacy,lab Status: 3)
+// ==========================================================
 const startOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // 1. Get Driver
+    const driver = await Driver.findById(req.user._id);
+    if (!driver) return res.send({ success: 0, message: "Driver not authenticated" });
+
+    const serviceType = driver.serviceType?.toLowerCase();
+    let order;
+
+    // 2. Find Order based on Service Type
+    if (serviceType === "pharmacy") {
+      order = await OrderPharmacy.findOne({ _id: orderId, driverAssignedId: driver._id });
+      if (order) {
+        order.status = 3; // Pharmacy uses Number 3
+      }
+    } 
+    else if (serviceType === "food") {
+      order = await FoodOrder.findOne({ _id: orderId, driverId: driver._id });
+      if (order) {
+        order.status = "3"; // Food uses String
+      }
+    } 
+    else if (serviceType === "lab") {
+      order = await Appointment.findOne({ _id: orderId, driverId: driver._id });
+      if (order) {
+        order.status = "3"; // Lab uses String
+      }
+    }
+
+    if (!order) {
+      return res.send({ success: 0, message: "Order not found or not assigned to you" });
+    }
+
+    await order.save();
+    return res.send({ success: 1, message: "Order started successfully", details: order });
+
+  } catch (error) {
+    return res.send({ success: 0, message: error.message });
+  }
+};
+
+// ==========================================================
+// 2. ARRIVED ORDER (Status: 4)
+// ==========================================================
+const arrivedOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
 
     const driver = await Driver.findById(req.user._id);
     if (!driver) return res.send({ success: 0, message: "Driver not authenticated" });
 
-    const order = await Order.findOne({ _id: orderId, driverId: req.user._id });
-    if (!order) return res.send({ success: 0, message: "Order not found or not assigned to you" });
+    const serviceType = driver.serviceType?.toLowerCase();
+    let order;
 
-    order.status = "3"; // 3 = started
+    if (serviceType === "pharmacy") {
+      order = await OrderPharmacy.findOne({ _id: orderId, driverAssignedId: driver._id });
+      if (order) order.status = 4; // Number
+    } 
+    else if (serviceType === "food") {
+      order = await FoodOrder.findOne({ _id: orderId, driverId: driver._id });
+      if (order) order.status = "4"; // String
+    } 
+    else if (serviceType === "lab") {
+      order = await Appointment.findOne({ _id: orderId, driverId: driver._id });
+      if (order) order.status = "4"; // String
+    }
+
+    if (!order) {
+      return res.send({ success: 0, message: "Order not found or not assigned to you" });
+    }
+
     await order.save();
-
-    return res.send({ success: 1, message: "Order started", details: order });
-  } catch (error) {
-    return res.send({ success: 0, message: error.message });
-  }
-};
-
-// Get all orders assigned to driver
-// Method: GET
-// Endpoint: /driver/arrived-order/:orderId
-const arrivedOrder = async (req, res) => {
-  try {
-    const { orderId } = req.params;
-
-    const order = await Order.findOne({ _id: orderId, driverId: req.user._id });
-    if (!order) return res.send({ success: 0, message: "Order not found or not assigned to you" });
-
-    order.status = "4"; // 4 = arrived
-    await order.save();
-
     return res.send({ success: 1, message: "Driver marked as arrived", details: order });
+
   } catch (error) {
     return res.send({ success: 0, message: error.message });
   }
 };
- //   /driver/collectSample
+
+// ==========================================================
+// 3. COLLECT SAMPLE (Lab Only - Status: 5)
+// ==========================================================
 const collectSample = async (req, res) => {
   try {
     const { AppointmentId } = req.query;
 
     if (!AppointmentId) {
-      return res.send({
-        success: 0,
-        message: "AppointmentId is required",
-      });
+      return res.send({ success: 0, message: "AppointmentId is required" });
     }
 
-    const updated = await Appointment.findByIdAndUpdate(
-      AppointmentId,
-      { status: 5 },
+    // Verify it is a Lab driver
+    const driver = await Driver.findById(req.user._id);
+    if (!driver || driver.serviceType.toLowerCase() !== "lab") {
+       return res.send({ success: 0, message: "Authorized for Lab Drivers only" });
+    }
+
+    // Lab uses String status "5" usually for sample collected/completed
+    const updated = await Appointment.findOneAndUpdate(
+      { _id: AppointmentId, driverId: driver._id },
+      { status: "5" }, 
       { new: true }
     );
 
     if (!updated) {
-      return res.send({
-        success: 0,
-        message: "Appointment not found",
-      });
+      return res.send({ success: 0, message: "Appointment not found or not assigned" });
     }
 
     return res.send({
       success: 1,
-      message: "Appointment status updated to 5",
+      message: "Sample collected, status updated to 5",
       data: updated,
     });
 
-  } catch (error) {
-    return res.send({
-      success: 0,
-      message: error.message,
-    });
-  }
-};
-
-
-
-
-// Get all orders assigned to driver
-// Method: GET
-// Endpoint: /driver/order-delivered/:orderId
-const markAsDelivered = async (req, res) => {
-  try {
-    const { orderId } = req.params;
-
-    const order = await Order.findOne({ _id: orderId, driverId: req.user._id });
-
-    if (!order) return res.send({ success: 0, message: "Order not found" });
-
-    order.status = "6"; // 5 = delivered
-    order.deliveryOtp = undefined; // Optional: clear OTP
-    await order.save();
-
-    return res.send({ success: 1, message: "Order marked as delivered", details: order });
   } catch (error) {
     return res.send({ success: 0, message: error.message });
   }
 };
 
-// Get all orders assigned to driver
-// Method: PATCH
-// Endpoint: /driver/reject-order/:orderId
+// ==========================================================
+// 4. MARK AS DELIVERED (food,pharmacy Status: 5 || lab status 6)
+// ==========================================================
+// Note: Pharmacy uses Number, others String. 
+// Assuming Delivered Status is 5 (completed) or 6 based on your flow. 
+// I will use 5 for delivered (standard) unless you strictly want 6.
+// endpoint: /driver/mark-delivered/:orderId
+const markAsDelivered = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { otp } = req.body; // If you use OTP verification
+
+    const driver = await Driver.findById(req.user._id);
+    if (!driver) return res.send({ success: 0, message: "Driver not authenticated" });
+
+    const serviceType = driver.serviceType?.toLowerCase();
+    let order;
+    let isDelivered = false;
+
+    // --- PHARMACY ---
+    if (serviceType === "pharmacy") {
+      order = await OrderPharmacy.findOne({ _id: orderId, driverAssignedId: driver._id });
+      if (order) {
+        // Optional: Check OTP here if needed
+        order.status = 5; // Number 5 for Delivered
+        // order.paymentStatus = 'completed'; // Optional update
+        isDelivered = true;
+      }
+    } 
+    // --- FOOD ---
+    else if (serviceType === "food") {
+      order = await FoodOrder.findOne({ _id: orderId, driverId: driver._id });
+      if (order) {
+        order.status = "5"; // String "5" for Delivered
+        if(order.deliveryOtp) order.deliveryOtp = undefined; 
+        isDelivered = true;
+      }
+    } 
+    // --- LAB ---
+    else if (serviceType === "lab") {
+      // Lab usually ends at 'collectSample' (status 5), but if there is a report delivery:
+      order = await Appointment.findOne({ _id: orderId, driverId: driver._id });
+      if (order) {
+        order.status = "6"; // Or "Completed"
+        isDelivered = true;
+      }
+    }
+
+    if (!order) {
+      return res.send({ success: 0, message: "Order not found" });
+    }
+
+    await order.save();
+
+    // Make driver available again
+    driver.isBusy = false;
+    await driver.save();
+
+    return res.send({ success: 1, message: "Order marked as delivered/completed", details: order });
+
+  } catch (error) {
+    return res.send({ success: 0, message: error.message });
+  }
+};
+
+// ==========================================================
+// 5. REJECT ORDER / return order (After Assignment)
+// ==========================================================
+// cancel or return order (food,pharmacy status 6, lab status 7)
+// endpoint: /driver/reject-order/:orderId
 const rejectOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { reason } = req.body;
 
-    if (!reason) {
-      return res.send({
-        success: 0,
-        message: "Rejection reason is required",
-      });
+    if (!reason) return res.send({ success: 0, message: "Rejection reason is required" });
+
+    const driver = await Driver.findById(req.user._id);
+    if (!driver) return res.send({ success: 0, message: "Driver not authenticated" });
+
+    const serviceType = driver.serviceType?.toLowerCase();
+    let order;
+
+    if (serviceType === "pharmacy") {
+      order = await OrderPharmacy.findOne({ _id: orderId, driverAssignedId: driver._id });
+      if (order) {
+        order.status = 6; // Number (6 for Cancelled/Returned)
+      }
+    } 
+    else if (serviceType === "food") {
+      order = await FoodOrder.findOne({ _id: orderId, driverId: driver._id });
+      if (order) {
+        order.status = "6"; // String
+      }
+    } 
+    else if (serviceType === "lab") {
+      order = await Appointment.findOne({ _id: orderId, driverId: driver._id });
+      if (order) {
+        order.status = "7"; // String
+      }
     }
 
-    const order = await Order.findOne({
-      _id: orderId,
-      driverId: req.user._id,
-    });
+    if (!order) return res.send({ success: 0, message: "Order not found" });
 
-    if (!order) {
-      return res.send({
-        success: 0,
-        message: "Order not found or not assigned to you",
-      });
-    }
-
-    // Mark order as rejected/returned
-    order.status = "6"; // 6 = Rejected/Returned
     order.rejectionReason = reason;
     await order.save();
 
-    return res.send({
-      success: 1,
-      message: "Order marked as rejected/returned",
-      details: order,
-    });
+    // Free up driver
+    driver.isBusy = false;
+    await driver.save();
+
+    return res.send({ success: 1, message: "Order marked as rejected/returned", details: order });
 
   } catch (error) {
-    return res.send({
-      success: 0,
-      message: error.message,
-    });
+    return res.send({ success: 0, message: error.message });
   }
 };
 
-// Get order history for driver
-// Method: GET
-// Endpoint: /driver/order-history
-
+// ==========================================================
+// 6. ORDER HISTORY (Completed/Rejected Orders)
+// ==========================================================
+// endpoint: /driver/order-history
 const orderHistory = async (req, res) => {
   try {
-    const driverId = req.user._id;
+    const driver = await Driver.findById(req.user._id);
+    if (!driver) return res.send({ success: 0, message: "Driver not authenticated" });
 
-    // Get all orders that are either delivered (5) or rejected (6)
-    const orders = await Order.find({
-      driverId,
-      status: { $in: ["5", "6"] }, // 5 = Delivered, 6 = Rejected
-    })
-    .populate("userId") // Full user details
-    .populate("vendorId") // Full vendor details
-    .populate("driverId") // ✅ Add driver details (self)
-    .populate("items.FoodItem") // food items
-      .populate("driverId", "name phoneNumber")          // driver info
-      .sort({ updatedAt: -1 });                           // latest first
+    const serviceType = driver.serviceType?.toLowerCase();
+    let orders = [];
 
-    // Format the response with more details
-    const formattedOrders = orders.map(order => ({
-      _id: order._id,
-      orderId: order.orderId, // if you have an order ID field
-      status: order.status,
-      statusText: order.status === "5" ? "Delivered" : "Rejected",
-      totalAmount: order.totalAmount,
-      deliveryAddress: order.deliveryAddress,
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
-      rejectionReason: order.rejectionReason || null,
-      user: order.userId,
-      vendor: order.vendorId,
-      driver: order.driverId,
-      items: order.items.map(item => ({
-        foodItem: item.FoodItem,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-    }));
+    // --- PHARMACY HISTORY ---
+    if (serviceType === "pharmacy") {
+      // Assuming status 5 is Delivered, 6 is Cancelled
+      orders = await OrderPharmacy.find({
+        driverAssignedId: driver._id,
+        status: { $in: [5, 6] } 
+      })
+      .populate("userId", "name phone address")
+      .populate("items.productId", "name")
+      .sort({ updatedAt: -1 });
+    } 
+    // --- FOOD HISTORY ---
+    else if (serviceType === "food") {
+      // Assuming status "5" is Delivered, "6" is Cancelled
+      orders = await FoodOrder.find({
+        driverId: driver._id,
+        status: { $in: ["5", "6"] }
+      })
+      .populate("userId", "name phone address")
+      .populate("items.FoodItem", "name price")
+      .sort({ updatedAt: -1 });
+    } 
+    // --- LAB HISTORY ---
+    else if (serviceType === "lab") {
+      // Assuming status "5" or "6" is Completed
+      orders = await Appointment.find({
+        driverId: driver._id,
+        status: { $in: ["5", "6"] }
+      })
+      .populate("userId", "name phone")
+      .populate("testId", "testName")
+      .sort({ updatedAt: -1 });
+    }
 
     return res.send({
       success: 1,
       message: "Order history fetched successfully",
       count: orders.length,
-      details: formattedOrders,
+      details: orders,
     });
 
   } catch (error) {
     console.error("Order history error:", error);
-    return res.status(500).send({
-      success: 0,
-      message: "Failed to fetch order history",
-      error: error.message,
-    });
+    return res.send({ success: 0, message: error.message });
   }
 };
 
-
-// Method: PATCH
-// Endpoint: /driver/driver-assign-reject/:orderId
+// ==========================================================
+// 7. DRIVER ASSIGN REJECT (Initially Rejecting Request by driver go back to (status 1) for accepted orders)
+// ==========================================================
+// endpoint: /driver/assign-reject/:orderId
 const driverAssignReject = async (req, res) => {
   try {
     const { orderId } = req.params;
- 
-    // ड्राइवर authentication
     const driver = await Driver.findById(req.user._id);
-    if (!driver) {
-      return res.send({ success: 0, message: "Driver not authenticated" });
+    if (!driver) return res.send({ success: 0, message: "Driver not authenticated" });
+
+    const serviceType = driver.serviceType?.toLowerCase();
+    let order;
+
+    if (serviceType === "pharmacy") {
+      // Pharmacy uses driverAssignedId
+      order = await OrderPharmacy.findOne({ _id: orderId, driverAssignedId: driver._id });
+      if (order) {
+        order.status = 1; // Back to 'Searching' or 'Pending' (Number)
+        order.driverAssignedId = null; // Unassign driver
+      }
+    } 
+    else if (serviceType === "food") {
+      // Food uses driverId
+      order = await FoodOrder.findOne({ _id: orderId, driverId: driver._id });
+      if (order) {
+        order.status = "1"; // Back to 'Searching' (String)
+        order.driverId = null; // Unassign driver
+      }
+    } 
+    else if (serviceType === "lab") {
+      // Lab uses driverId
+      order = await Appointment.findOne({ _id: orderId, driverId: driver._id });
+      if (order) {
+        order.status = "1"; // String
+        order.driverId = null;
+      }
     }
- 
-    // Verify order belongs to this driver and is in assigned state
-    const order = await Order.findOne({ _id: orderId, driverId: req.user._id });
-    if (!order) {
-      return res.send({ success: 0, message: "Order not found or not assigned to you" });
-    }
- 
-    // Set status = 2 (rejected)
-    order.status = "1"; // Rejected
+
+    if (!order) return res.send({ success: 0, message: "Order not found or not assigned" });
+
     await order.save();
- 
-    return res.send({
-      success: 1,
-      message: "Order rejected successfully",
-      details: order,
-    });
+    return res.send({ success: 1, message: "Assignment rejected successfully", details: order });
  
   } catch (error) {
     return res.send({ success: 0, message: error.message });
   }
 };
- 
  
 
 

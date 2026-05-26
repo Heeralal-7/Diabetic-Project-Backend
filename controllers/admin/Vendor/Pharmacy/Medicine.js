@@ -73,7 +73,8 @@ const uploadMedicineExcel = async (req, res) => {
 // Endpoint: /admin-medicine/get-all-medicine
 const getAllMedicineData = async (req, res) => {
     try {
-      const medicines = await Medicine.find({});
+      const medicines = await Medicine.find({})
+      .sort({ createdAt: -1 });
       const totalCount = medicines.length;
   
       res.send({
@@ -146,60 +147,100 @@ const updateMedicine = async (req, res) => {
  
   // Admin: Get pending approval medicines
 // Method: GET
-// Endpoint: /admin-medicine/pending-medicine/:id
+// Endpoint: /admin-medicine/pending-medicine
  
-const getPendingMedicines = async (req,res)=>{
+const getPendingMedicines = async (req, res) => {
   try {
-    const data = await PharmacyMedicine.find({onStatus:"0"})
+    const data = await PharmacyMedicine.find({ onStatus: "1" })
+      .populate({
+        path: "medicineId",
+        model: "Medicine",
+        strictPopulate: false
+      })
+      .populate({
+        path: "vendorId",
+        model: "vandor",
+        strictPopulate: false
+      });
+
     return res.send({
-      success:1,
-      message:"fetch succesfully",
-      details:data
-    })
+      success: 1,
+      message: "Fetched successfully",
+      details: data,
+    });
+
   } catch (error) {
+    console.log("Populate Error:", error);
     return res.send({
-      success:0,
-      message:error.message
-    })
+      success: 0,
+      message: error.message,
+    });
   }
-}
+};
+
+
  
  
 // Admin: Approve a medicine
 // Method: patch
 // Endpoint: /admin-medicine/approve-medicine/:id
  
+// Admin: Approve a medicine
+// Method: PATCH
+// Endpoint: /admin-medicine/approve-medicine/:id
+
 const approveMedicine = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("Approving Medicine ID:", id);
- 
+    console.log("Approving Pharmacy Medicine ID:", id);
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).send({
         success: 0,
         message: "Invalid ID format",
       });
     }
- 
-    const updated = await PharmacyMedicine.findByIdAndUpdate(
+
+    // 1️⃣ Step 1: PharmacyMedicine ko update karein
+    const updatedPharmacyMed = await PharmacyMedicine.findByIdAndUpdate(
       id,
-      { onStatus: "1" },
+      { onStatus: "0" },
       { new: true }
     );
- 
-    if (!updated) {
-      console.log("Medicine not found in DB");
+
+    if (!updatedPharmacyMed) {
+      console.log("Medicine not found in PharmacyMedicine DB");
       return res.status(404).send({
         success: 0,
-        message: "Medicine not found",
+        message: "Medicine not found in Pharmacy records",
       });
     }
- 
+
+    // 2️⃣ Step 2: Main Medicine Model ko bhi update karein
+    // HINT: Yahan check karein ki PharmacyMedicine me medicine ka reference kis naam se hai.
+    // Maine 'medicineId' assume kiya hai. Agar aapke DB me 'medicine' ya 'medId' hai, toh usse replace karein.
+    
+    if (updatedPharmacyMed.medicineId) {
+      await Medicine.findByIdAndUpdate(
+        updatedPharmacyMed.medicineId, // Ye link ID hai
+        { onStatus: "0" }
+      );
+      console.log("Main Medicine model also updated.");
+    } else {
+        // Fallback: Agar medicineId field nahi hai, aur aap sure hain ki 
+        // PharmacyMedicine ki ID aur Medicine ki ID same hi hai, toh neeche wali line uncomment karein:
+        
+        // await Medicine.findByIdAndUpdate(id, { onStatus: "0" });
+        
+        console.log("Warning: medicineId field not found in PharmacyMedicine record.");
+    }
+
     return res.send({
       success: 1,
-      message: "Medicine approved successfully",
-      details: updated,
+      message: "Medicine approved successfully in both records",
+      details: updatedPharmacyMed,
     });
+
   } catch (error) {
     console.log("Error:", error.message);
     return res.status(500).send({
@@ -208,7 +249,6 @@ const approveMedicine = async (req, res) => {
     });
   }
 };
- 
  
 // Admin: Reject a medicine
 // Method: patch
@@ -244,14 +284,66 @@ const rejectMedicine = async (req, res) => {
 };
  
  
- 
+ // Admin: Delete a single medicine
+// Method: DELETE
+// Endpoint: /admin-medicine/delete-medicine/:id
+const deleteMedicine = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).send({ success: 0, message: "Invalid medicine ID format." });
+        }
+
+        const deletedMedicine = await Medicine.findByIdAndDelete(id);
+
+        if (!deletedMedicine) {
+            return res.status(404).send({ success: 0, message: "Medicine not found." });
+        }
+
+        return res.send({ success: 1, message: "Medicine deleted successfully." });
+
+    } catch (error) {
+        return res.status(500).send({ success: 0, message: error.message });
+    }
+};
+
+
+// --- NEW ---
+// Admin: Delete multiple medicines
+// Method: DELETE
+// Endpoint: /admin-medicine/delete-multiple-medicines
+const deleteMultipleMedicines = async (req, res) => {
+    try {
+        const { ids } = req.body;
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).send({ success: 0, message: "Please provide an array of medicine IDs to delete." });
+        }
+
+        const result = await Medicine.deleteMany({
+            _id: { $in: ids },
+        });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).send({ success: 0, message: "No medicines found with the provided IDs." });
+        }
+
+        return res.send({ success: 1, message: `${result.deletedCount} medicines deleted successfully.` });
+
+    } catch (error) {
+        return res.status(500).send({ success: 0, message: error.message });
+    }
+};
  
  
 module.exports = { uploadMedicineExcel, getAllMedicineData ,
   getPendingMedicines,
   approveMedicine,
   rejectMedicine,
-  updateMedicine
+  updateMedicine,
+  deleteMedicine,
+  deleteMultipleMedicines
 };
  
  

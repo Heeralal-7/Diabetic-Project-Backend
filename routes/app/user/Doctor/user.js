@@ -12,7 +12,7 @@ const {
 
 const route = Router();
 
-route.get("/", middlewere, getAllDoctor);
+route.post("/", middlewere, getAllDoctor);
 route.get("/profile", doctorMiddleware, getSingleDoctor);
 route.get("/getDoctor",middlewere,getDoctor)
 module.exports = route;

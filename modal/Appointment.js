@@ -1,8 +1,8 @@
 const { Schema, model } = require("mongoose");
+const mongoose = require('mongoose');
 
 const appointmentSchema = Schema(
   {
-
     serviceType: {
       type: String,
       default: "",
@@ -132,7 +132,6 @@ const appointmentSchema = Schema(
       type: String, 
       default: "0"
     },
-    
     driverId: {
       type: Schema.Types.ObjectId,
       ref: "Driver",
@@ -140,7 +139,12 @@ const appointmentSchema = Schema(
     },
     patientId: {
       type: Schema.Types.ObjectId,
-      ref: "AddMember",
+      ref: "Patient",
+      default: null,
+    },
+    Patient: {
+      type: Schema.Types.ObjectId,
+      ref: "Patient",
       default: null,
     },
    problemDescription: {
@@ -165,7 +169,7 @@ const appointmentSchema = Schema(
     },
     age: {
       type: Number,
-      required: false, // or true if you want it mandatory
+      required: false, 
     },
     // couponId
     couponId: {
@@ -203,15 +207,138 @@ const appointmentSchema = Schema(
       type: Boolean,
       default: false,
     },
-    
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'completed', 'failed', 'refunded','free'],
+      default: 'pending'
+    },
+    paymentId: {
+      type: String,
+      default: null
+    },
+    paymentMethod: {
+      type: String,
+      default: null
+    },
+    paymentGateway: {
+      type: String,
+      default: null
+    },
+    transactionId: {
+      type: String,
+      default: null
+    },
     paymentDetails: {
       type: Object,
-      default: {}, // Optional: ensures it's initialized as an object
-    }
+      default: {}, 
+    },
+    // Membership related fields
+    userMembershipId: {
+      type: Schema.Types.ObjectId,
+      ref: "UserMemberShip",
+      default: null
+    },
+    isFreeConsultation: {
+      type: Boolean,
+      default: false
+    },
+    membershipConsultationUsed: {
+      type: Boolean,
+      default: false
+    },
+    cutoffPercentage: {
+      type: Number,
+      default: 5
+    },
+    adminEarnings: {
+      type: Number,
+      default: 0
+    },
+    vendorPayout: {
+      type: Number,
+      default: 0
+    },
+    // ✅ Simple cancellation fields
+    cancellationStatus: {
+      type: String,
+      enum: ['none', 'cancelled'],
+      default: 'none'
+    },
+    cancellationCharge: {
+      type: Number,
+      default: 0
+    },
+    cancellationReason: String,
+    cancelledAt: Date,
+    refundAmount: {
+      type: Number,
+      default: 0
+    },
+    refundStatus: {
+      type: String,
+      enum: ['pending', 'completed'],
+      default: 'pending'
+    },
+    refundId: {
+      type: String, // Yahan Razorpay Refund ID (rfnd_...) save hogi
+      default: null
+    },
+    refundedAt: {
+      type: Date,
+      default: null
+    },
 
+    refundBeneficiaryDetails: {
+      mode: { type: String, enum: ['bank', 'upi'], default: null },
+      bankName: { type: String, default: '' },
+      accountNumber: { type: String, default: '' },
+      ifsc: { type: String, default: '' },
+      accountHolderName: { type: String, default: '' },
+      upiId: { type: String, default: '' }
+    },
+    manualRefundDetails: {
+      adminTransactionId: { type: String, default: '' }, // Transaction ID entered by Admin
+      refundedByMode: { type: String, default: '' }, // 'IMPS', 'NEFT', 'UPI'
+      refundDate: { type: Date }
+    },
+    tax: { type: Number },
+    deliveryCharges: { type: Number },
+    rapidDeliveryFee: { type: Number, default: 0 },
+    isRapidDelivery: { type: Boolean, default: false },
+
+    
+    appliedDiscountPercentage: {
+      type: String, 
+      default: "0" 
+    },
+  
+
+    // Appointment modal में यह field add करें
+    membershipCutoff: {
+      type: Number,
+      default: 0
+    },
+
+    payoutStatus: {
+      type: String,
+      enum: ['pending', 'requested', 'paid'],
+      default: 'pending' // pending = eligible but not requested, requested = sent to admin, paid = money transferred
+    },
+    payoutRequestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PayoutRequest",
+      default: null
+    },
+    eligibleForPayoutDate: {
+      type: Date, // We will store when this order becomes eligible (Created/Completed + 7 days)
+      default: null
+    },
+    vendorAcceptedAt: Date,
+    orderCompletedAt: Date
   },
   {
-    Timestamp: true,
+    Timestamp: true, // Note: Standard mongoose is "timestamps" (lowercase 's'), but I kept yours as is.
+    timestamps: true 
   }
 );
 module.exports = model("Appointment", appointmentSchema);

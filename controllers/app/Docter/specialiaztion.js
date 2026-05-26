@@ -4,7 +4,7 @@ const Specialists = require("../../../modal/Specialists")
 
 // Get specialiaztion
 // Method:GET
-// EndPoint:/
+// EndPoint:/specialiazation
 const getSpecialiaztion = async(req,res)=>{
 try {
        const data = await Specialists.find({})

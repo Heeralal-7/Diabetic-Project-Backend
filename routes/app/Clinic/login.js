@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const multer = require("multer");
-const { registerClinic, loginDoctor, otpSentToDcotor, otpSentToPhone, verifyPhoneOtp, verifyEmailOtp, getClinic, updateDoctors, getDoctor, editclinicDoctor, deleteDoctor, uploadAchievement, deleteAchievementImages, getClinicAchievement, service, getClinicSpecialists, removeSpecialistFromClinic, updateClinicTimings } = require("../../../controllers/app/Clinic/login");
+const { registerClinic, loginDoctor, otpSentToDcotor, otpSentToPhone, verifyPhoneOtp, verifyEmailOtp, getClinic, updateDoctors, getDoctor, editclinicDoctor, deleteDoctor, uploadAchievement, deleteAchievementImages, getClinicAchievement, service, getClinicSpecialists, removeSpecialistFromClinic, updateClinicTimings,getAllSpecialists,changeClinicPassword } = require("../../../controllers/app/Clinic/login");
 const path = require('path');
 const fs = require('fs');
 
@@ -134,4 +134,6 @@ router.post("/service",ClinicMiddleware,service)
 router.get("/getClinicSpecialists",ClinicMiddleware,getClinicSpecialists)
 router.delete("/removeSpecialistFromClinic",ClinicMiddleware,removeSpecialistFromClinic)
 router.post("/updateClinicTimings",ClinicMiddleware,updateClinicTimings)
+router.get("/getAllSpecialists",ClinicMiddleware,getAllSpecialists)
+router.put("/change-password",ClinicMiddleware,changeClinicPassword)
 module.exports = router

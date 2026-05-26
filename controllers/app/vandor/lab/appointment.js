@@ -10,7 +10,7 @@ const Document = require("../../../../modal/Document");
 // Method:Get
 // EndPoints:/ all-appointments/getallaapointments
 // type 0 for genralOrder and 1 for prescriptionOrder
-// status 0 pending 1 for accepted 2 for rejected and 3 for pending for reports
+// status 0 pending 1 for accepted 9 for rejected and 3 for pending for reports
 const getAllVendorAppointments = async (req, res) => {
   try {
     const { type, page, limit, status } = req.query;
@@ -34,8 +34,19 @@ const getAllVendorAppointments = async (req, res) => {
       .populate({
         path: 'testId',
         model: 'Addtest',
-        select: 'testName',
+        select: "testName amount description testCategory organ precautions testType sampleRequired sampleCollected vendorId discountPercentage",
       })
+      .populate({
+        path: 'packageId',
+        model: 'AddPackage',
+        select: 'packageName description packagePrice packageTestIds',
+      })
+      .populate({
+      path: 'couponId',
+      model: 'Coupon', // Ensure ye wahi model name hai jo aapne define kiya hai
+      select: 'couponCode percentageDiscount fixedAmountDiscount description' // Specific fields select karein
+    })
+      
 
       .skip((pageNumber - 1) * pageSize)
       .limit(pageSize)
@@ -62,33 +73,43 @@ const getAllVendorAppointments = async (req, res) => {
 // Update appointment
 // Method:Patch
 // EndPoints:/all-appointments/updatestatus
-// type : 1 for accept and  2 for reject
+// type : 1 for accept and  9 for reject
 const updateAppointmentStatus = async (req, res) => {
   try {
-    const { type, appointmentId,rejectionReason } = req.body;
+    const { type, appointmentId, rejectionReason } = req.body;
+
+    // Prepare the update object
+    let updateData = {
+      status: type,
+      rejectionReason: rejectionReason || null // Save reason if provided
+    };
+
+    // ✅ ADDED: If status is 1 (Accepted), set vendorAcceptedAt
+    if (String(type) === "1") {
+      updateData.vendorAcceptedAt = new Date();
+    }
 
     // Find and update the appointment status
     const updatedAppointment = await Appointment.findOneAndUpdate(
       { _id: appointmentId, vendorId: req.user._id },
-      { status: type },
-      {rejectionReason:rejectionReason},
+      { $set: updateData }, // Using $set to update specific fields
       { new: true }
     );
 
     // Check if the appointment was found and updated
     if (!updatedAppointment) {
       return res.send({
-        message:
-          "Appointment not found or you do not have permission to update it",
+        message: "Appointment not found or you do not have permission to update it",
         success: 0,
       });
     }
 
     return res.send({
       message: `Appointment ${
-        type == 1 ? "Accepted" : type == 2 ? "Rejected" : "Pending"
+        type == 1 ? "Accepted" : type == 9 ? "Rejected" : "Pending"
       } successfully`,
       success: 1,
+      data: updatedAppointment
     });
   } catch (error) {
     return res.send({
@@ -101,7 +122,7 @@ const updateAppointmentStatus = async (req, res) => {
 //Get particular appointment
 //Method:Get
 //EndPoints: all-appointments/particular
-// status 0 pending 1 for accepted 2 for rejected and 3 for pending for reports
+// status 0 pending 1 for accepted 2 for assigned and 3 for pending for reports
 const getParticularAppointment = async (req, res) => {
   try {
     const { status, page, limit } = req.query;
@@ -348,7 +369,7 @@ const updateDocumentStatus = async (req, res) => {
 // Assign driver
 // Method:Patch
 // EndPoints:all-appointments/assign
-// type : 3 for pending report
+// type : 2 for pending report
 const assignDriverToAppointment = async (req, res) => {
   try {
     const { driverId, appointmentId } = req.body;
@@ -371,7 +392,7 @@ const assignDriverToAppointment = async (req, res) => {
       appointmentId,
       {
         driverId: driverId,
-        status: 3,
+        status: "2",
       },
       { new: true }
     );
@@ -448,7 +469,7 @@ const venorderHistory = async (req, res) => {
       .populate({
         path: 'testId',
         model: 'Addtest',
-        select: 'testName',
+        select: "testName amount discountedAmount description testCategory organ precautions testType sampleRequired sampleCollected vendorId",
       })
       .populate({
         path: 'packageId',

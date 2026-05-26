@@ -1,13 +1,16 @@
 const mongoose = require("mongoose");
  
 const pharmacyMedicineSchema = new mongoose.Schema({
-  medicineId: { type: mongoose.Schema.Types.ObjectId, ref: "Medicine", required: true },
-    vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vandor", required: true },
+medicineId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Medicine",  // EXACT model name
+  required: true
+},    vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "vandor", required: true },
   stock: { type: Number, required: true },
   discount_seller: { type: Number, default: 0 },
   vendorPrice: { type: Number, required: true },
   sellingPrice: {
-    type: String, // ग्राहक को दिखाई जाने वाली कीमत
+    type: String, 
     default: "0",
   },
   isAvailable: {

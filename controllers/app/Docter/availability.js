@@ -4,7 +4,7 @@ const moment = require("moment");
 
 // Create doctor availability
 //Method: Post
-//Endpoints:/availability/create
+//Endpoints:/doctor-availability/create
 const createAvailability = async (req, res) => {
   try {
     const { day, startTime, endTime, startDate, endDate, slotTime } = req.body;
@@ -69,7 +69,7 @@ const deleteExpiredAvailablity = async (currentTime, currentDate) => {
 
 // Get doctor startorenddate
 //Method: Get
-//Endpoints:/availability
+//Endpoints:/doctor-availability/dates
 const getAllStartAndEndDate = async (req, res) => {
   try {
     let testDate = new Date();
@@ -79,7 +79,7 @@ const getAllStartAndEndDate = async (req, res) => {
 
     const findAllDates = await Availability.find({
       doctorId: req.user._id,
-    }).select("startDate endDate");
+    }).select("day startTime endTime startDate endDate slotTime vendorId doctorId");
     if (!findAllDates) {
       return res.send({
         success: 0,
@@ -102,7 +102,7 @@ const getAllStartAndEndDate = async (req, res) => {
 
 // Get Availability of doctor time
 //Method: Post
-//Endpoints:/doctor-availability/dates
+//Endpoints:/doctor-availability/getAvailabilty
 const getAvailabiltyOfDoctorAndTime = async (req, res) => {
   try {
     const { startDate, endDate } = req.body;
@@ -178,8 +178,43 @@ const getAvailabiltyOfDoctorAndTime = async (req, res) => {
   }
 };
 
+// Delete doctor availability
+//Method: Delete
+//Endpoint:/doctor-availability/delete/:id
+const deleteAvailability = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if availability exists and belongs to the doctor
+    const availability = await Availability.findOne({
+      _id: id,
+      doctorId: req.user._id,
+    });
+
+    if (!availability) {
+      return res.send({
+        success: 0,
+        message: "Availability not found or unauthorized",
+      });
+    }
+
+    await Availability.findByIdAndDelete(id);
+
+    return res.send({
+      success: 1,
+      message: "Availability deleted successfully",
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   createAvailability,
   getAvailabiltyOfDoctorAndTime,
   getAllStartAndEndDate,
+  deleteAvailability,
 };

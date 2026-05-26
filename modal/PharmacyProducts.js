@@ -29,6 +29,8 @@ const pharmacyProductSchema = new mongoose.Schema({
   alternate_brand: String,
   manufacturer_address: String,
   for_sale: String,
+  onStatus: { type: String, default: "" }, // "1": pending, "0": approved, "2": rejected
+  vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "vandor" },
  
   // Vendor-Only Fields
   stock: {

@@ -89,4 +89,5 @@ const addpatient = async (req, res) => {
   }
 };
 
+
 module.exports = { createMember, getAllMemberOfPatients,addpatient };

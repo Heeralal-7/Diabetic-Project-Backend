@@ -1,7 +1,8 @@
 const { Schema, model } = require("mongoose");
-
+ 
 const videoSchema = new Schema(
   {
+    // Existing fields for file uploads (UNCHANGED)
     video1: {
       type: String,
       default: "",
@@ -50,8 +51,34 @@ const videoSchema = new Schema(
       type: String,
       default: "",
     },
+   
+    youtubeLinks: [
+      {
+        url: {
+          type: String,
+          required: true
+        },
+        videoId: {
+          type: String,
+          required: true
+        },
+        thumbnail: {
+          type: String,
+          default: ""
+        },
+        title: {
+          type: String,
+          default: "YouTube Video"
+        },
+        addedAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ]
   },
-  { new: true }
+  { timestamps: true }
 );
-
+ 
 module.exports = model("Video", videoSchema);
+ 

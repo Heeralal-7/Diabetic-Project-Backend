@@ -13,12 +13,13 @@ const {
   getallpacakge,
   getparticulatlabtest,
   getPackagecollection,
+  getAllOrgans
  
 } = require("../../../../controllers/app/user/labs/nearLabs");
 
 const route = Router();
 
-route.get("/near", middlewere, getVendor);
+route.post("/near", middlewere, getVendor);
 
 route.get("/available/:id", middlewere, getVendoravailability);
 route.get("/test/:id", middlewere, getVendorTest);
@@ -30,4 +31,5 @@ route.get("/package/:id", middlewere , getpackages)
 route.get("/package" ,middlewere , getallpacakge)
 route.get("/parttest" , middlewere , getparticulatlabtest)
 route.get("/getcollectionPackage", middlewere,getPackagecollection );
+route.get("/getAllOrgans",getAllOrgans );
 module.exports = route;

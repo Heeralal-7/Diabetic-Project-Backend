@@ -29,45 +29,23 @@ const addService = async (req, res) => {
       alternativeAddress,
       manufacturingAddress,
       medicineType,
-      // quantity,
       mrp,
       bestPrice,
       discountPercentage,
       stock
     } = req.body;
- 
-    // Parse prescription as Boolean safely
-    const prescription = req.body.prescription === true || req.body.prescription === 'true';
- 
+
+    // Prescription Boolean
+    const prescription_required =
+      req.body.prescription === true || req.body.prescription === "true";
+
+    // Required Fields Validate
     const requiredFields = {
       categoryName,
       name,
-      manufacturers,
-      saltComposition,
-      packaging,
-      primaryUse,
-      description,
-      saltSynonyms,
-      storage,
-      introduction,
-      useOf,
-      benefits,
-      sideEffects,
-      howToUse,
-      howItWorks,
-      safetyAdvice,
-      ifMissed,
-      alternativeAddress,
-      manufacturingAddress,
-      medicineType,
-      // quantity,
-      mrp,
-      bestPrice,
-      discountPercentage,
-      stock
+     
     };
- 
-    // Validate required fields
+
     for (const [key, value] of Object.entries(requiredFields)) {
       if (value === undefined || value === "") {
         return res.status(400).json({
@@ -76,74 +54,65 @@ const addService = async (req, res) => {
         });
       }
     }
- 
-    // Validate prescription presence explicitly
-    if (typeof prescription !== "boolean") {
-      return res.status(400).json({
-        success: 0,
-        message: "The field 'prescription' is required and must be true or false.",
-      });
-    }
- 
-    // Handle image uploads
+
+    // Images
     const photoPaths = req.files?.map((file) => `/vendor/photo/${file.filename}`) || [];
- 
-    // Check vendor token
+
+    // Vendor Token Check
     if (!req.user || !req.user._id) {
       return res.status(401).json({
         success: 0,
         message: "Unauthorized: Vendor token missing or invalid.",
       });
     }
- 
-    // Create Service
-    const data = await Service.create({
-      categoryName,
+
+    // ⭐ Create Medicine (Updated)
+    const medicine = await Medicine.create({
       name,
       manufacturers,
-      saltComposition,
+      salt_composition: saltComposition,
       packaging,
-      primaryUse,
+      primary_use: primaryUse,
       description,
-      saltSynonyms,
+      salt_synonyms: saltSynonyms,
       storage,
       introduction,
-      useOf,
+      use_of: useOf,
       benefits,
-      sideEffects,
-      howToUse,
-      howItWorks,
-      safetyAdvice,
-      ifMissed,
-      alternativeAddress,
-      manufacturingAddress,
-      medicineType,
-      stock,
+      side_effect: sideEffects,
+      how_to_use: howToUse,
+      how_works: howItWorks,
+      safety_advise: safetyAdvice,
+      if_miss: ifMissed,
+      alternate_brand: alternativeAddress,
+      manufacturer_address: manufacturingAddress,
+      image_url: photoPaths,
+      prescription_required: prescription_required ? "true" : "false",
       mrp,
-      bestPrice,
-      discountPercentage,
-      photo: photoPaths,
-      vendorId: req.user._id,
-      prescription,
-      onStatus: "0",
+      best_price: bestPrice,
+      discont_percent: discountPercentage,
+      stock: parseInt(stock),
+      discount_seller: parseInt(discountPercentage),
+      bestPrice: bestPrice,
+      onStatus: "1"       // Admin approval pending
     });
- 
-    // Add to PharmacyMedicine (temporary stock, pending approval)
+
+    // ⭐ Now entry to PharmacyMedicine
     await PharmacyMedicine.create({
-      medicineId: data._id,
+      medicineId: medicine._id,
       vendorId: req.user._id,
       stock: parseInt(stock),
       discount_seller: parseInt(discountPercentage),
       vendorPrice: bestPrice,
-      onStatus: "0"
+      onStatus: "1",
     });
- 
+
     return res.status(201).json({
       success: 1,
-      message: "Service created successfully",
-      data,
+      message: "Medicine added successfully",
+      data: medicine,
     });
- 
+
   } catch (error) {
     console.error("Add Service Error:", error);
     return res.status(500).json({
@@ -153,6 +122,7 @@ const addService = async (req, res) => {
     });
   }
 };
+
  
  
 // Get medicine data uploaded from Excel
@@ -160,21 +130,33 @@ const addService = async (req, res) => {
 // Endpoint: /services/getMedicine
 const getMedicineData = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
- 
+    const { page = 1, limit = 100 } = req.query;
+
     const skip = (page - 1) * limit;
+
+    // ⭐ Fix: Exclude only onStatus "1" and 1.
+    // $nin ka matlab hai "Not In".
+    // Iska matlab onStatus na to "1" hona chahiye na hi 1 (number).
+    // Iske alawa jo bhi hoga (0, "0", missing, null) sab aayega.
+    
+    const filter = {
+      onStatus: { $nin: ["1", 1] } 
+    };
+
     const [medicines, totalCount] = await Promise.all([
-      Medicine.find().skip(parseInt(skip)).limit(parseInt(limit)),
-      Medicine.countDocuments()
+      Medicine.find(filter)
+        .skip(parseInt(skip))
+        .limit(parseInt(limit)),
+      Medicine.countDocuments(filter)
     ]);
- 
+
     if (!medicines || medicines.length === 0) {
       return res.status(200).json({
         success: 0,
         message: "No medicine records found.",
       });
     }
- 
+
     return res.status(200).json({
       success: 1,
       message: "Medicine data fetched successfully",
@@ -192,6 +174,8 @@ const getMedicineData = async (req, res) => {
     });
   }
 };
+
+
  
 // Update stock and discount for a specific medicine
 // Method: POST
@@ -232,7 +216,7 @@ const updateStockAndDiscount = async (req, res) => {
         stock,
         discount_seller,
         vendorPrice: updatedPrice,
-        onStatus: "1"  // यहाँ डिफॉल्ट स्टेटस 1 (approved) सेट कर दिया
+        onStatus: "0"  // यहाँ डिफॉल्ट स्टेटस 1 (approved) सेट कर दिया
       },
       { upsert: true, new: true }
     );
@@ -269,7 +253,7 @@ const getVendorMedicines = async (req, res) => {
     const vendorMeds = await PharmacyMedicine.find({
       vendorId: req.user._id,
       stock: { $gt: 0 },
-      onStatus: "1",
+      onStatus: "0",
     });
  
     if (!vendorMeds || vendorMeds.length === 0) {
@@ -407,7 +391,7 @@ const getServices = async (req, res) => {
     }
  
     const data = await Service.find(query)
-      .sort({ onStatus: 1, createdAt: -1 }) // sort by onStatus first
+      .sort({ onStatus: 0, createdAt: -1 }) // sort by onStatus first
       .skip(parseInt(skip))
       .limit(parseInt(limit));
  

@@ -76,8 +76,10 @@ const applyCoupon = async (req, res) => {
 //    /user-applycoupon/getCoupon
 const getCoupon = async (req, res) => {
   try {
-    const { doctorId } = req.body; // 🟠 Doctor ID from request body
-    const userId = req.user?.userId; // 🔵 User ID from token (middleware se aayega)
+    // Yehi line correct extraction ke liye zaroori hai
+    const doctorId = req.query.doctorId || req.body.doctorId || req.params.doctorId; 
+    
+    const userId = req.user?.userId;
 
     if (!doctorId) {
       return res.send({
@@ -92,8 +94,8 @@ const getCoupon = async (req, res) => {
     return res.send({
       success: 1,
       message: "Coupons fetched successfully",
-      userId,       // from token
-      doctorId,     // from body
+      userId,
+      doctorId, 
       coupons,
     });
   } catch (error) {

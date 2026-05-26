@@ -20,7 +20,7 @@ const driverSchema = Schema(
     },
     serviceType: {
       type: String,
-      default: "",
+      default: "",// [Pharmacy,Food,Lab]
     },
     token: {
       type: String,

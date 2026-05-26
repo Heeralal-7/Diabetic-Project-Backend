@@ -1,44 +1,67 @@
 const Docter = require("../../../modal/docter");
 const Document = require("../../../modal/Document");
-// const DoctorPrescription = require("../../../modal/DoctorPrescription");
 const InsuranceModel = require("../../../modal/AddInsurance");
 const membership = require("../../../modal/MemberShip");
 const Coupon = require("../../../modal/Coupon");
 const jwt = require("jsonwebtoken");
-// Get all doctors
-// method: GET
-// End point /doctorAccess/getDoctors
+
+// Get all doctors - UPDATED WITH SUB-ADMIN SUPPORT
+// Get all doctors - UPDATED WITH LOCATION FILTERS
+// Get all doctors - PROPERLY UPDATED WITH LOCATION FILTERS
 const getDoctors = async (req, res) => {
   try {
-    const doctors = await Docter.find().sort({ createdAt: -1 }); // latest first
+    const locationFilters = req.locationFilters || {};
+    
+    console.log("🩺 Fetching doctors with filters:", locationFilters);
 
-    return res.send({
+    const doctors = await Docter.find(locationFilters).sort({ createdAt: -1 });
+    
+    console.log(`✅ Found ${doctors.length} doctors`);
+
+    return res.status(200).json({
       success: 1,
-      message: "Doctor list fetched successfully",
+      message: Object.keys(locationFilters).length > 0 ? 
+        `Doctors filtered by location` : "All doctors fetched successfully",
       data: doctors,
+      appliedFilters: locationFilters
     });
+    
   } catch (error) {
-    return res.send({
+    console.error("❌ Error in getDoctors:", error);
+    return res.status(500).json({
       success: 0,
       message: error.message,
     });
   }
 };
 
-// ✅ API 1: Get document by doctor ID
-// method: GET
-// End point: /doctorAccess/getDocumentByDoctorId/:id
+// ✅ API 1: Get document by doctor ID - UPDATED WITH PERMISSION CHECK
 const getDocumentByDoctorId = async (req, res) => {
   try {
-    const doctor = await Docter.findById(req.params.id).populate(
-      "myDocumentId"
-    );
+    const doctor = await Docter.findById(req.params.id).populate("myDocumentId");
 
     if (!doctor) {
       return res.send({
         success: 0,
         message: "Doctor not found",
       });
+    }
+
+    // ✅ FOR SUB-ADMIN, CHECK LOCATION PERMISSION
+    if (req.subAdmin) {
+      const { locationAccess } = req.subAdmin;
+      const hasLocationAccess = (
+        (!locationAccess.countries || locationAccess.countries.length === 0 || locationAccess.countries.includes(doctor.country)) &&
+        (!locationAccess.states || locationAccess.states.length === 0 || locationAccess.states.includes(doctor.state)) &&
+        (!locationAccess.cities || locationAccess.cities.length === 0 || locationAccess.cities.includes(doctor.city))
+      );
+      
+      if (!hasLocationAccess) {
+        return res.status(403).send({
+          success: 0,
+          message: "Access denied to this doctor"
+        });
+      }
     }
 
     if (!doctor.myDocumentId) {
@@ -60,13 +83,20 @@ const getDocumentByDoctorId = async (req, res) => {
     });
   }
 };
-// ✅ 1. Approve a specific document field
-// PATCH /doctorAccess/approveDocumentField/:id
+
+// ✅ 1. Approve a specific document field - UPDATED WITH PERMISSION CHECK
 const approveDocumentField = async (req, res) => {
   try {
-    const { field } = req.body; // e.g., "panCardStatus"
+    const { field } = req.body;
 
-    // validate field
+    // ✅ CHECK PERMISSION FOR SUB-ADMIN
+    if (req.subAdmin && !req.subAdmin.permissions?.doctors?.edit) {
+      return res.status(403).send({
+        success: 0,
+        message: "No permission to approve documents",
+      });
+    }
+
     if (!field) {
       return res.send({
         success: 0,
@@ -74,12 +104,63 @@ const approveDocumentField = async (req, res) => {
       });
     }
 
-    const update = {};
-    update[field] = "3"; // approved status
+    const allowedFields = [
+      "panCardStatus",
+      "aadharCardStatus",
+      "drivingLicenceStatus",
+      "doctorCertificateStatus",
+      "licenceNoStatus",
+      "accreditationStatus",
+      "registrationNoStatus",
+    ];
 
-    const updatedDoc = await Document.findByIdAndUpdate(req.params.id, update, {
-      new: true,
-    });
+    if (!allowedFields.includes(field)) {
+      return res.send({
+        success: 0,
+        message: "Invalid field name",
+      });
+    }
+
+    const doctor = await Docter.findById(req.params.id);
+    if (!doctor) {
+      return res.send({
+        success: 0,
+        message: "Doctor not found",
+      });
+    }
+
+    // ✅ FOR SUB-ADMIN, CHECK LOCATION PERMISSION
+    if (req.subAdmin) {
+      const { locationAccess } = req.subAdmin;
+      const hasLocationAccess = (
+        (!locationAccess.countries || locationAccess.countries.length === 0 || locationAccess.countries.includes(doctor.country)) &&
+        (!locationAccess.states || locationAccess.states.length === 0 || locationAccess.states.includes(doctor.state)) &&
+        (!locationAccess.cities || locationAccess.cities.length === 0 || locationAccess.cities.includes(doctor.city))
+      );
+      
+      if (!hasLocationAccess) {
+        return res.status(403).send({
+          success: 0,
+          message: "Access denied to this doctor"
+        });
+      }
+    }
+
+    if (!doctor.myDocumentId) {
+      return res.send({
+        success: 0,
+        message: "No document linked to this doctor",
+      });
+    }
+
+    const update = {};
+    update[field] = "1";
+
+    const updatedDoc = await Document.findByIdAndUpdate(
+      doctor.myDocumentId,
+      update,
+      { new: true }
+    );
 
     if (!updatedDoc) {
       return res.send({
@@ -94,6 +175,7 @@ const approveDocumentField = async (req, res) => {
       data: updatedDoc,
     });
   } catch (error) {
+    console.error("Error approving doctor document field:", error);
     return res.send({
       success: 0,
       message: error.message,
@@ -101,11 +183,18 @@ const approveDocumentField = async (req, res) => {
   }
 };
 
-// ✅ 2. Reject a specific document field
-// PATCH /doctorAccess/rejectDocumentField/:id
+// ✅ 2. Reject a specific document field - UPDATED WITH PERMISSION CHECK
 const rejectDocumentField = async (req, res) => {
   try {
     const { field, rejectReason } = req.body;
+
+    // ✅ CHECK PERMISSION FOR SUB-ADMIN
+    if (req.subAdmin && !req.subAdmin.permissions?.doctors?.edit) {
+      return res.status(403).send({
+        success: 0,
+        message: "No permission to reject documents",
+      });
+    }
 
     if (!field || !rejectReason) {
       return res.send({
@@ -131,14 +220,48 @@ const rejectDocumentField = async (req, res) => {
       });
     }
 
+    const doctor = await Docter.findById(req.params.id);
+    if (!doctor) {
+      return res.send({
+        success: 0,
+        message: "Doctor not found",
+      });
+    }
+
+    // ✅ FOR SUB-ADMIN, CHECK LOCATION PERMISSION
+    if (req.subAdmin) {
+      const { locationAccess } = req.subAdmin;
+      const hasLocationAccess = (
+        (!locationAccess.countries || locationAccess.countries.length === 0 || locationAccess.countries.includes(doctor.country)) &&
+        (!locationAccess.states || locationAccess.states.length === 0 || locationAccess.states.includes(doctor.state)) &&
+        (!locationAccess.cities || locationAccess.cities.length === 0 || locationAccess.cities.includes(doctor.city))
+      );
+      
+      if (!hasLocationAccess) {
+        return res.status(403).send({
+          success: 0,
+          message: "Access denied to this doctor"
+        });
+      }
+    }
+
+    if (!doctor.myDocumentId) {
+      return res.send({
+        success: 0,
+        message: "No document linked to this doctor",
+      });
+    }
+
     const update = {
       [field]: "2",
       [`rejectReasons.${field}`]: rejectReason,
     };
 
-    const updatedDoc = await Document.findByIdAndUpdate(req.params.id, update, {
-      new: true,
-    });
+    const updatedDoc = await Document.findByIdAndUpdate(
+      doctor.myDocumentId,
+      update,
+      { new: true }
+    );
 
     if (!updatedDoc) {
       return res.send({
@@ -153,23 +276,26 @@ const rejectDocumentField = async (req, res) => {
       data: updatedDoc,
     });
   } catch (error) {
+    console.error("Error rejecting doctor document field:", error);
     return res.send({
       success: 0,
       message: error.message,
     });
   }
 };
-// ✅ API 2: Verify account (Accountverify = "1")
-// method: PATCH
-// End point: /doctorAccess/verifyDoctorAccount/:id
+
+// ✅ API 2: Verify account - UPDATED WITH PERMISSION CHECK
 const verifyDoctorAccount = async (req, res) => {
   try {
-    const doctor = await Docter.findByIdAndUpdate(
-      req.params.id,
-      { Accountverify: "1" },
-      { new: true }
-    );
+    // ✅ CHECK PERMISSION FOR SUB-ADMIN
+    if (req.subAdmin && !req.subAdmin.permissions?.doctors?.edit) {
+      return res.status(403).send({
+        success: 0,
+        message: "No permission to verify doctors",
+      });
+    }
 
+    const doctor = await Docter.findById(req.params.id);
     if (!doctor) {
       return res.send({
         success: 0,
@@ -177,12 +303,47 @@ const verifyDoctorAccount = async (req, res) => {
       });
     }
 
+    // ✅ FOR SUB-ADMIN, CHECK LOCATION PERMISSION
+    if (req.subAdmin) {
+      const { locationAccess } = req.subAdmin;
+      const hasLocationAccess = (
+        (!locationAccess.countries || locationAccess.countries.length === 0 || locationAccess.countries.includes(doctor.country)) &&
+        (!locationAccess.states || locationAccess.states.length === 0 || locationAccess.states.includes(doctor.state)) &&
+        (!locationAccess.cities || locationAccess.cities.length === 0 || locationAccess.cities.includes(doctor.city))
+      );
+      
+      if (!hasLocationAccess) {
+        return res.status(403).send({
+          success: 0,
+          message: "Access denied to this doctor"
+        });
+      }
+    }
+
+    // Check if already approved
+    if (doctor.Accountverify === '1') {
+      return res.status(400).send({
+        success: 0,
+        message: "Doctor is already approved"
+      });
+    }
+
+    const updatedDoctor = await Docter.findByIdAndUpdate(
+      req.params.id,
+      { 
+        Accountverify: "1",
+        rejectReason: ''
+      },
+      { new: true }
+    ).select('name email specialist Accountverify rejectReason');
+
     return res.send({
       success: 1,
       message: "Doctor account verified successfully",
-      data: doctor,
+      data: updatedDoctor,
     });
   } catch (error) {
+    console.error("Error verifying doctor account:", error);
     return res.send({
       success: 0,
       message: error.message,
@@ -190,11 +351,18 @@ const verifyDoctorAccount = async (req, res) => {
   }
 };
 
-// PATCH: Reject doctor account (Accountverify = "2")
-// End point: /doctorAccess/rejectDoctorAccount/:id
+// PATCH: Reject doctor account - UPDATED WITH PERMISSION CHECK
 const rejectDoctorAccount = async (req, res) => {
   try {
     const { rejectReason } = req.body;
+
+    // ✅ CHECK PERMISSION FOR SUB-ADMIN
+    if (req.subAdmin && !req.subAdmin.permissions?.doctors?.edit) {
+      return res.status(403).send({
+        success: 0,
+        message: "No permission to reject doctors",
+      });
+    }
 
     if (!rejectReason) {
       return res.send({
@@ -203,15 +371,7 @@ const rejectDoctorAccount = async (req, res) => {
       });
     }
 
-    const doctor = await Docter.findByIdAndUpdate(
-      req.params.id,
-      {
-        Accountverify: "2",
-        rejectReason,
-      },
-      { new: true }
-    );
-
+    const doctor = await Docter.findById(req.params.id);
     if (!doctor) {
       return res.send({
         success: 0,
@@ -219,12 +379,39 @@ const rejectDoctorAccount = async (req, res) => {
       });
     }
 
+    // ✅ FOR SUB-ADMIN, CHECK LOCATION PERMISSION
+    if (req.subAdmin) {
+      const { locationAccess } = req.subAdmin;
+      const hasLocationAccess = (
+        (!locationAccess.countries || locationAccess.countries.length === 0 || locationAccess.countries.includes(doctor.country)) &&
+        (!locationAccess.states || locationAccess.states.length === 0 || locationAccess.states.includes(doctor.state)) &&
+        (!locationAccess.cities || locationAccess.cities.length === 0 || locationAccess.cities.includes(doctor.city))
+      );
+      
+      if (!hasLocationAccess) {
+        return res.status(403).send({
+          success: 0,
+          message: "Access denied to this doctor"
+        });
+      }
+    }
+
+    const updatedDoctor = await Docter.findByIdAndUpdate(
+      req.params.id,
+      {
+        Accountverify: "2",
+        rejectReason: rejectReason.trim()
+      },
+      { new: true }
+    ).select('name email specialist Accountverify rejectReason');
+
     return res.send({
       success: 1,
-      message: "Doctor account rejected with reason",
-      data: doctor,
+      message: "Doctor account rejected successfully",
+      data: updatedDoctor,
     });
   } catch (error) {
+    console.error("Error rejecting doctor account:", error);
     return res.send({
       success: 0,
       message: error.message,
@@ -232,20 +419,17 @@ const rejectDoctorAccount = async (req, res) => {
   }
 };
 
-
-
 // ✅ API 3: Add insurance type to prescription
 // method: POST
 // End point: /doctorAccess/addInsuranceType
-
 const createInsurance = async (req, res) => {
   try {
-    const insuranceData = req.body; // get the insurance data from request body
-    const data = await InsuranceModel.create(insuranceData); // use Mongoose model here
+    const insuranceData = req.body;
+    const data = await InsuranceModel.create(insuranceData);
 
     return res.send({
       success: 1,
-      message: "posted",
+      message: "Insurance type created successfully",
       details: data,
     });
   } catch (error) {
@@ -270,8 +454,30 @@ const getCouponsByDoctorId = async (req, res) => {
       });
     }
 
-    // Optionally run checkCoupon if needed
-    // await checkCoupon(id);
+    // ✅ FOR SUB-ADMIN, CHECK LOCATION PERMISSION
+    const doctor = await Docter.findById(id);
+    if (!doctor) {
+      return res.send({
+        success: 0,
+        message: "Doctor not found",
+      });
+    }
+
+    if (req.subAdmin) {
+      const { locationAccess } = req.subAdmin;
+      const hasLocationAccess = (
+        (!locationAccess.countries || locationAccess.countries.length === 0 || locationAccess.countries.includes(doctor.country)) &&
+        (!locationAccess.states || locationAccess.states.length === 0 || locationAccess.states.includes(doctor.state)) &&
+        (!locationAccess.cities || locationAccess.cities.length === 0 || locationAccess.cities.includes(doctor.city))
+      );
+      
+      if (!hasLocationAccess) {
+        return res.status(403).send({
+          success: 0,
+          message: "Access denied to this doctor's coupons"
+        });
+      }
+    }
 
     const findCoupons = await Coupon.find({
       doctorId: id,
@@ -301,7 +507,7 @@ const getCouponsByDoctorId = async (req, res) => {
 // doctorAccess/Membership
 const Membership = async (req, res) => {
   try {
-    const { BloodSugar, AgeGroup, HadDiabetes, LifeStyle,Price } = req.body;
+    const { BloodSugar, AgeGroup, HadDiabetes, LifeStyle, Price } = req.body;
 
     if (
       !Array.isArray(BloodSugar) ||
@@ -339,7 +545,6 @@ const Membership = async (req, res) => {
   }
 };
 
-
 // doctorAccess/getMembership
 const getMembership = async (req, res) => {
   try {
@@ -367,7 +572,7 @@ const getMembership = async (req, res) => {
   }
 };
 
- // doctorAccess/calculateDiscountedPrice
+// doctorAccess/calculateDiscountedPrice
 const calculateDiscountedPrice = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -429,6 +634,84 @@ const calculateDiscountedPrice = async (req, res) => {
   }
 };
 
+// ✅ GET DOCTOR STATISTICS - NEW FUNCTION
+const getDoctorStats = async (req, res) => {
+  try {
+    const locationFilters = req.locationFilters || {};
+    
+    console.log("📊 Fetching doctor stats with filters:", locationFilters);
+
+    // Total doctors count
+    const totalDoctors = await Docter.countDocuments(locationFilters);
+    
+    // Monthly stats
+    const monthlyStats = await Docter.aggregate([
+      {
+        $match: locationFilters
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { "_id.year": 1, "_id.month": 1 }
+      },
+      {
+        $project: {
+          year: "$_id.year",
+          month: "$_id.month",
+          count: 1,
+          _id: 0
+        }
+      }
+    ]);
+
+    // Status-wise counts
+    const verifiedDoctors = await Docter.countDocuments({ 
+      ...locationFilters, 
+      Accountverify: "1" 
+    });
+    
+    const pendingDoctors = await Docter.countDocuments({ 
+      ...locationFilters, 
+      Accountverify: "0" 
+    });
+    
+    const rejectedDoctors = await Docter.countDocuments({ 
+      ...locationFilters, 
+      Accountverify: "2" 
+    });
+
+    console.log(`✅ Doctor stats: ${totalDoctors} total doctors`);
+
+    return res.status(200).json({
+      success: true,
+      message: "Doctor statistics fetched successfully",
+      data: {
+        totalDoctors,
+        verifiedDoctors,
+        pendingDoctors,
+        rejectedDoctors,
+        monthlyStats: monthlyStats
+      },
+      appliedFilters: locationFilters
+    });
+
+  } catch (error) {
+    console.error("Error fetching doctor statistics:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching doctor statistics",
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getDoctors,
   getDocumentByDoctorId,
@@ -440,5 +723,6 @@ module.exports = {
   getCouponsByDoctorId,
   Membership,
   getMembership,
-  calculateDiscountedPrice
+  calculateDiscountedPrice,
+  getDoctorStats
 };

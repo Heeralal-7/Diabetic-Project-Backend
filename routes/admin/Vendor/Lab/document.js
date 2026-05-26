@@ -9,8 +9,8 @@ const {
 
 const route = Router();
 
-route.get("/vendordoc", adminMiddleware, getDocuments);
-route.patch("/approveVendorDocumentField/:id", adminMiddleware, approveVendorDocumentField);
-route.patch("/rejectVendorDocumentField/:id", adminMiddleware, rejectVendorDocumentField);
+route.get("/vendordoc", getDocuments);
+route.patch("/approveVendorDocumentField/:id", approveVendorDocumentField);
+route.patch("/rejectVendorDocumentField/:id", rejectVendorDocumentField);
 
 module.exports = route;

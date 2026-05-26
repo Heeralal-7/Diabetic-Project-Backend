@@ -62,17 +62,22 @@ const uploadProductExcel = async (req, res) => {
   }
 };
  
-// Get all product data
+// Get Product Data (Excluding Approved & No Status)
 // Method: GET
 // Endpoint: /upload-excel-hospital/get-all-product
 const getAllProductData = async (req, res) => {
   try {
-    const products = await PharmacyProduct.find({});
+       
+    const products = await PharmacyProduct.find({
+        onStatus: { $nin: [0, "", null] }
+    })
+    .sort({ createdAt: -1 }); // Newest first
+ 
     const totalCount = products.length;
  
     res.send({
       success: 1,
-      message: "All product data",
+      message: "Filtered product data (No Approved, No Empty Status)",
       totalCount,
       details: products
     });
@@ -80,7 +85,100 @@ const getAllProductData = async (req, res) => {
     res.status(500).send({ success: 0, message: err.message });
   }
 };
+ 
+// Update Product Status (Approve/Reject) for Admin
+// Method: PUT
+// Endpoint: /upload-excel-hospital/update-product-status
+const updateProductStatus = async (req, res) => {
+  try {
+    // 1. Request Body se data lena
+    const { productId, onStatus } = req.body;
+ 
+    // 2. Validation: Check karein data aaya ya nahi
+    if (!productId) {
+      return res.status(400).send({
+          success: 0,
+          message: "Product ID (productId) is required."
+      });
+    }
+ 
+    // Check onStatus validation (0 ya 1 hona chahiye)
+    // Hum loose equality (==) use kar rahe hain taaki string "0" ya number 0 dono chalein
+    if (onStatus == undefined || (onStatus != 0 && onStatus != 1)) {
+        return res.status(400).send({
+            success: 0,
+            message: "Invalid status. Send 0 for Approve, 1 for Reject."
+        });
+    }
+ 
+    // 3. Status Action define karna (Log purpose ke liye)
+    // Note: User logic -> 0 = Approve, 1 = Reject
+    const action = onStatus == 0 ? "Approved" : "Rejected";
+ 
+    // 4. Database Update
+    const updatedProduct = await PharmacyProduct.findByIdAndUpdate(
+      productId,
+      {
+          onStatus: onStatus
+      },
+      { new: true } // Update hone ke baad wala data return karega
+    );
+ 
+    // 5. Agar product nahi mila
+    if (!updatedProduct) {
+      return res.status(404).send({
+          success: 0,
+          message: "Product not found."
+      });
+    }
+ 
+    // 6. Success Response
+    res.send({
+      success: 1,
+      message: `Product successfully ${action} (Status: ${onStatus})`,
+      data: updatedProduct
+    });
+ 
+  } catch (err) {
+    // Error Handling
+    console.error("Update Status Error:", err);
+    res.status(500).send({ success: 0, message: err.message });
+  }
+};
+ 
 
+// Admin: Update a single product
+// Method: PUT
+// Endpoint: /upload-excel-hospital/update-product/:id
+const updateProduct = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updateData = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).send({ success: 0, message: "Invalid product ID format." });
+        }
+
+        const updatedProduct = await PharmacyProduct.findByIdAndUpdate(
+            id,
+            updateData,
+            { new: true, runValidators: true } // Return the updated document and run schema validators
+        );
+
+        if (!updatedProduct) {
+            return res.status(404).send({ success: 0, message: "Product not found." });
+        }
+
+        return res.send({ success: 1, message: "Product updated successfully.", details: updatedProduct });
+
+    } catch (error) {
+        // Handle potential validation errors
+        if (error.name === 'ValidationError') {
+            return res.status(400).send({ success: 0, message: "Validation failed.", error: error.message });
+        }
+        return res.status(500).send({ success: 0, message: "An error occurred while updating the product.", error: error.message });
+    }
+};
 
 // --- NEW ---
 // Admin: Delete a single product
@@ -135,6 +233,6 @@ const deleteMultipleProducts = async (req, res) => {
     }
 };
  
-module.exports = { uploadProductExcel, getAllProductData, deleteProduct, deleteMultipleProducts };
+module.exports = { uploadProductExcel, getAllProductData,updateProduct,updateProductStatus, deleteProduct, deleteMultipleProducts };
  
  

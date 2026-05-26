@@ -6,7 +6,7 @@ const Vendor = require("../../../../modal/vandor");
 //Get ordered food
 //Method:Get
 //Endpoint: /vendor-order/order
-//status: 0 for pending , 1 for accept , 2 for reject
+//status: 0 for pending , 1 for accept , 2 for assignd to driver , 5 for delivered ,6 for returned by driver
 // orderType: "Single" for single item orders, "Bulk" for bulk orders
 const getFoodOrder = async (req, res) => {
   try {
@@ -22,7 +22,7 @@ const getFoodOrder = async (req, res) => {
       filter.orderType = orderType;
     }
 
-    let data = await FoodOrder.find(filter)
+    let data = await FoodOrder.find(filter).sort({ createdAt: -1 })
       .populate("userId")
       .populate("items.FoodItem");
 
@@ -49,18 +49,27 @@ const getFoodOrder = async (req, res) => {
 //Change user order status
 //Method:Patch
 //Endpoint: vendor-order/status/id/?status
-//status: 0 for pending , 1 for accept , 2 for reject
+//status: 0 for pending , 1 for accept , 2 for assignd to driver , 5 for delivered ,6 for returned by driver
 const changeOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status,rejectionReason } = req.query;
+    const { status, rejectionReason } = req.query;
+
+    // Update object prepare karein
+    let updateData = {
+      status,
+      rejectionReason
+    };
+
+    // Agar status "1" (Accept) hai, to current time set karein
+    if (status === "1") {
+      updateData.vendorAcceptedAt = new Date();
+    }
+
     const data = await Order.findByIdAndUpdate(
       id,
-      {
-        status,
-        rejectionReason
-      },
-      { new: true }
+      updateData,
+      { new: true } // Return updated document
     );
 
     return res.send({
@@ -87,6 +96,7 @@ const getOrder = async (req, res) => {
     const limitNum = parseInt(limit, 10);
 
     const data = await Order.find({ status })
+    .sort({ createdAt: -1 })
       .populate("userId")
       .populate("items.FoodItem")
       .populate("vendorId", "name phoneNumber") // Populate vendor details
@@ -130,6 +140,7 @@ const orderHistory = async (req, res) => {
     // console.log("Fetching orders for vendorId:", vendorId);
 
     const orders = await FoodOrder.find({ vendorId })
+    .sort({ createdAt: -1 })
       .populate("items.FoodItem") // Populate foodId if needed
       // .populate("items.FoodItem")
       .populate("vendorId") // Populate vendorId
@@ -197,6 +208,7 @@ const getAcceptedOrders = async (req, res) => {
       status: "1",
       items: { $size: 1 },
     })
+    .sort({ createdAt: -1 })
       .populate("userId")
       .populate("items.FoodItem");
 
@@ -292,6 +304,7 @@ const getOrderWithDriver = async (req, res) => {
     const { orderId } = req.params;
 
     const order = await FoodOrder.findById(orderId)
+    .sort({ createdAt: -1 })
       .populate("items.FoodItem")
       .populate("userId")
       .populate("driverId"); // ✅ include driver details
@@ -325,7 +338,8 @@ const getOnlineDrivers = async (req, res) => {
     const onlineDrivers = await Driver.find({
       vendorId: req.user._id,
       isOnline: true, // ✅ only online drivers
-    });
+    })
+    .sort({ createdAt: -1 });
 
     if (!onlineDrivers || onlineDrivers.length === 0) {
       return res.send({
@@ -364,6 +378,7 @@ const orderHistorydriver = async (req, res) => {
       vendorId,
       status: { $in: ["5", "6"] }, // 5 = Delivered, 6 = Rejected
     })
+    .sort({ createdAt: -1 })
     .populate("userId") // Full user details
     .populate("vendorId") // Full vendor details
     .populate("driverId") // ✅ Add driver details (self)

@@ -68,41 +68,46 @@ const getPatient = async (req, res) => {
 const updatePatientAddress = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phone, addressType, address, state, city, pinCode } = req.body;
+    const {
+      name, dob, phone, gender,
+      address, country, state, city, pinCode
+    } = req.body;
+   
     const token = req.headers.token;
-
     if (!token) {
       return res.status(401).send({
         success: 0,
-        message: "No authentication token found",
+        message: "Authentication required",
       });
     }
-
-    const updatedAddress = await Patient.findByIdAndUpdate(
+ 
+    const updatedPatient = await Patient.findByIdAndUpdate(
       id,
       {
-        name,
-        phone,
-        addressType,
-        address,
-        state,
-        city,
-        pinCode,
+        name: name || "",
+        dob: dob || "",
+        phone: phone || "",
+        gender: gender || "",
+        address: address || "",
+        country: country || "India",
+        state: state || "",
+        city: city || "",
+        pinCode: pinCode || ""
       },
       { new: true }
     );
-
-    if (!updatedAddress) {
+ 
+    if (!updatedPatient) {
       return res.status(404).send({
         success: 0,
-        message: "Address not found",
+        message: "Patient not found",
       });
     }
-
+ 
     return res.send({
       success: 1,
-      message: "Address updated successfully",
-      details: updatedAddress,
+      message: "Profile updated successfully",
+      patient: updatedPatient,
     });
   } catch (error) {
     return res.status(500).send({
@@ -111,6 +116,7 @@ const updatePatientAddress = async (req, res) => {
     });
   }
 };
+ 
 
 // Delete patient address
 // Method: Delete

@@ -35,58 +35,80 @@ try {
 
 
 const getDoctorStats = async (req, res) => {
-    try {
-      const currentDate = new Date();
-  
-      const months = Array.from({ length: 12 }, (_, i) => {
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-        return {
-          year: date.getFullYear(),
-          month: date.getMonth() + 1, 
-        };
-      }).reverse(); 
-  
-      const doctorStats = await Docter.aggregate([
-        {
-          $addFields: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
-          },
+  try {
+    const currentDate = new Date();
+    const locationFilters = req.locationFilters || {}; // ✅ Global filters access karein
+
+    console.log("🩺 Fetching doctor stats with filters:", locationFilters);
+
+    const months = Array.from({ length: 12 }, (_, i) => {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      return {
+        year: date.getFullYear(),
+        month: date.getMonth() + 1, 
+      };
+    }).reverse(); 
+
+    // ✅ Build match stage with location filters
+    const matchStage = {
+      $match: {
+        createdAt: { $exists: true },
+        ...locationFilters // ✅ Apply location filters here
+      }
+    };
+
+    const doctorStats = await Docter.aggregate([
+      matchStage, // ✅ Add match stage with filters
+      {
+        $addFields: {
+          year: { $year: "$createdAt" },
+          month: { $month: "$createdAt" },
         },
-        {
-          $group: {
-            _id: { year: "$year", month: "$month" },
-            count: { $sum: 1 },
-          },
+      },
+      {
+        $group: {
+          _id: { year: "$year", month: "$month" },
+          count: { $sum: 1 },
         },
-        {
-          $sort: { "_id.year": 1, "_id.month": 1 },
-        },
-      ]);
-  
-      const stats = months.map(({ year, month }) => {
-        const stat = doctorStats.find(
-          (d) => d._id.year === year && d._id.month === month
-        );
-        return {
-          year,
-          month,
-          count: stat ? stat.count : 0, 
-        };
-      });
-  
-      return res.send({
-        success: 1,
-        message: "Monthly doctor registration stats",
-        details: stats,
-      });
-    } catch (error) {
-      return res.send({
-        success: 0,
-        message: error.message,
-      });
-    }
-  };
+      },
+      {
+        $sort: { "_id.year": 1, "_id.month": 1 },
+      },
+    ]);
+
+    const stats = months.map(({ year, month }) => {
+      const stat = doctorStats.find(
+        (d) => d._id.year === year && d._id.month === month
+      );
+      return {
+        year,
+        month,
+        count: stat ? stat.count : 0, 
+      };
+    });
+
+    // ✅ Calculate total doctors with filters
+    const totalDoctors = await Docter.countDocuments(locationFilters);
+
+    console.log(`✅ Doctor stats fetched: ${totalDoctors} total doctors with filters`);
+
+    return res.send({
+      success: 1,
+      message: locationFilters.country ? 
+        `Monthly doctor registration stats for ${locationFilters.country}${locationFilters.state ? `, ${locationFilters.state}` : ''}${locationFilters.city ? `, ${locationFilters.city}` : ''}` :
+        "Monthly doctor registration stats",
+      details: stats,
+      totalDoctors: totalDoctors,
+      appliedFilters: locationFilters
+    });
+  } catch (error) {
+    console.error("❌ Error in getDoctorStats:", error);
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
   
 
 module.exports = {qualification,getDoctorStats}

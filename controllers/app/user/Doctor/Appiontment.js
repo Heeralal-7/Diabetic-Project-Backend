@@ -1,6 +1,7 @@
 const Appointment = require("../../../../modal/Appointment");
 const BookedSlot = require("../../../../modal/BookedSlot");
 const Wallet = require("../../../../modal/wallet");
+const UserMemberShip = require("../../../../modal/UsermemberShip");
 const AddMember = require("../../../../modal/AddMembers");
 const Doctor = require("../../../../modal/docter");
 const Prescribe = require("../../../../modal/Prescribe");
@@ -293,8 +294,511 @@ const getAllUserAppointments = async (req, res) => {
   }
 };
 
+// website k liye hai... 
+// Method: POST
+// Endpoint: /user-appointment/appointmentReact
+// ✅ UPDATED: Fixed membership logic + Clinic-based status
+// ✅ UPDATED: Fixed membership logic + Clinic-based status FROM DOCTOR MODEL
+const appointmentReact = async (req, res) => {
+  try {
+    const {
+      doctorId,
+      clinicId, // Frontend se aane wala clinicId
+      serviceType,
+      date,
+      price,
+      startime,
+      type,
+      day,
+      patientId,
+      problemDescription,
+      age,
+      couponId,
+      status, // ✅ Frontend se explicit status (9 ya 0)
+      
+      // 🚨 CRITICAL FLAGS FROM FRONTEND
+      useMembership = false,
+      isPaid = false,
+      paymentStatus = "pending",
+      paymentId = null,
+      paymentMethod = null,
+      
+      // 🚨 NEW FORCE FLAGS FROM FRONTEND
+      forcePaidAppointment = false,
+      skipMembershipCheck = false
+    } = req.body;
+
+    const userId = req.user._id;
+
+    // 🔍 Validate required fields
+    const required = {
+      date,
+      price,
+      day,
+      patientId,
+      problemDescription,
+      age,
+    };
+
+    const missing = Object.entries(required)
+      .filter(([key, val]) => !val)
+      .map(([key]) => key);
+
+    if (missing.length > 0) {
+      return res.send({
+        success: 0,
+        message: "The following fields are required:",
+        errors: missing,
+      });
+    }
+
+    // 🚨 NEW: DOCTOR MODEL CHECK FOR CLINIC ID
+    let doctorClinicId = null;
+    let hasDoctorClinic = false;
+    
+    if (doctorId) {
+      const doctor = await Doctor.findById(doctorId).select('clinicId');
+      if (doctor) {
+        doctorClinicId = doctor.clinicId;
+        hasDoctorClinic = doctorClinicId && doctorClinicId.toString().trim() !== "";
+        console.log(`✅ Doctor Model Clinic Check:`, {
+          doctorId,
+          doctorClinicId: doctorClinicId || "None",
+          hasDoctorClinic
+        });
+      }
+    }
+
+    // ✅ 🚨 DYNAMIC STATUS LOGIC (UPDATED WITH DOCTOR MODEL CHECK)
+    // Priority: 1. Frontend status, 2. Doctor Model Clinic ID, 3. Request Clinic ID, 4. Default
+    let finalStatus = "0"; // Default
+    
+    if (status && (status === "0" || status === "9")) {
+      // 1. If frontend sends explicit status, use it (highest priority)
+      finalStatus = status;
+      console.log(`✅ Using explicit frontend status: ${finalStatus}`);
+    } else if (hasDoctorClinic) {
+      // 2. If doctor model has clinicId, set to 9
+      finalStatus = "9";
+      console.log(`✅ Doctor has clinic in model, setting status: ${finalStatus}`);
+    } else if (clinicId && clinicId.trim() !== "") {
+      // 3. If request has clinicId (but doctor doesn't have), set to 9
+      finalStatus = "9";
+      console.log(`✅ Request has clinicId (doctor model doesn't), setting status: ${finalStatus}`);
+    } else {
+      // 4. No clinic anywhere, set to 0
+      finalStatus = "0";
+      console.log(`✅ No clinic found anywhere, setting default status: ${finalStatus}`);
+    }
+
+    console.log("📊 Status Logic Summary:", {
+      frontendStatus: status,
+      doctorModelHasClinic: hasDoctorClinic,
+      doctorClinicId: doctorClinicId || "None",
+      requestClinicId: clinicId || "None",
+      finalStatus: finalStatus
+    });
+
+    let finalPrice = price;
+    let isFreeConsultation = false;
+    let userMembershipId = null;
+    let membershipConsultationUsed = false;
+
+    // ✅ 🚨 UPDATED MEMBERSHIP LOGIC: Handle different scenarios
+    if (forcePaidAppointment === true || skipMembershipCheck === true) {
+      // 🚨 SCENARIO 1: FORCE PAID APPOINTMENT (from payment gateway)
+      console.log("✅ Force paid appointment - skipping membership check");
+      isFreeConsultation = false;
+      userMembershipId = null;
+      membershipConsultationUsed = false;
+      finalPrice = price; // Keep the paid price
+      
+    } else if (useMembership === true) {
+      // 🚨 SCENARIO 2: EXPLICIT MEMBERSHIP USAGE REQUESTED
+      console.log("✅ Checking membership as requested");
+      const activeMembership = await UserMemberShip.findOne({
+        userId,
+        isActive: true,
+        endDate: { $gt: new Date() },
+      });
+
+      if (activeMembership) {
+        // ✅ Handle missing/null consultationLimit safely
+        const consultationLimit = activeMembership.consultationLimit ?? 0;
+        const consultationsUsed = activeMembership.consultationsUsed ?? 0;
+        
+        const consultationsRemaining = Math.max(consultationLimit - consultationsUsed, 0);
+
+        if (consultationsRemaining > 0) {
+          isFreeConsultation = true;
+          userMembershipId = activeMembership._id;
+          membershipConsultationUsed = true;
+          
+          // ✅ Update membership usage
+          await UserMemberShip.findByIdAndUpdate(
+            activeMembership._id,
+            { 
+              $inc: { consultationsUsed: 1 },
+              lastUsed: new Date()
+            }
+          );
+
+          console.log(`✅ Membership used: ${activeMembership.planName}, ${consultationsRemaining - 1} consultations remaining`);
+        } else {
+          // ❌ Membership exists but no consultations remaining
+          return res.send({
+            success: 0,
+            message: "No free consultations remaining in your membership",
+          });
+        }
+      } else {
+        // ❌ No active membership found but user requested to use it
+        return res.send({
+          success: 0,
+          message: "No active membership found to use for free consultation",
+        });
+      }
+    } else {
+      // 🚨 SCENARIO 3: REGULAR PAID APPOINTMENT (no membership)
+      console.log("✅ Regular paid appointment - no membership");
+      isFreeConsultation = false;
+      userMembershipId = null;
+      membershipConsultationUsed = false;
+      finalPrice = price; // Keep original price
+    }
+
+    // ✅ Format time
+    const formattedStartime = formatTime(startime);
+
+    // ✅ Prevent duplicate booking for same user + time
+    const isExist = await BookedSlot.findOne({
+      userId: req.user._id,
+      startDate: date,
+      startTime: startime,
+      ...(doctorId && { doctorId }),
+      ...(clinicId && { vendorId: clinicId }),
+    });
+
+    if (isExist) {
+      return res.send({
+        success: 0,
+        message: "You have already booked this appointment slot.",
+      });
+    }
+
+    // ✅ Appointment object - COMPLETE WITH ALL FIELDS
+    const appointmentData = {
+      userId: req.user._id,
+      serviceType,
+      date,
+      price: finalPrice,
+      timeSlot: formattedStartime,
+      type,
+      day,
+      patientId,
+      problemDescription,
+      age,
+      
+      // 🚨 STATUS: Doctor Model ClinicId based or frontend provided 
+      status: finalStatus,
+      
+      // Clinic status logic - based on doctor model clinicId
+      clinicStatus: hasDoctorClinic ? "1" : "0",
+      
+      // 🚨 Store both clinic IDs for reference
+      ...(doctorClinicId && { doctorModelClinicId: doctorClinicId }),
+      ...(clinicId && { requestClinicId: clinicId }),
+      
+      // 🚨 MEMBERSHIP FIELDS
+      isFreeConsultation,
+      userMembershipId,
+      membershipConsultationUsed,
+      
+      // 🚨 PAYMENT FIELDS
+      isPaid: isPaid || paymentStatus === "completed" || forcePaidAppointment,
+      paymentStatus: paymentStatus || (forcePaidAppointment ? "completed" : "pending"),
+      paymentId,
+      paymentMethod,
+      
+      // Additional fields
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Add IDs
+    if (doctorId) appointmentData.doctorId = doctorId;
+    if (clinicId) {
+      appointmentData.vendorId = clinicId;
+      appointmentData.clinicId = clinicId;
+    }
+    
+    // Use doctor's clinicId if available (higher priority)
+    if (hasDoctorClinic && doctorClinicId) {
+      appointmentData.vendorId = doctorClinicId;
+      appointmentData.clinicId = doctorClinicId;
+      appointmentData.clinicStatus = "1";
+    }
+    
+    if (couponId) appointmentData.couponId = couponId;
+
+    // ✅ Create appointment
+    const appointment = await Appointment.create(appointmentData);
+
+    // ✅ BookedSlot with same status
+    const slotData = {
+      startTime: startime,
+      startDate: date,
+      userId: req.user._id,
+      day,
+      price: finalPrice,
+      patientId,
+      isFreeConsultation,
+      membershipConsultationUsed,
+      status: finalStatus, // ✅ Same status
+      appointmentId: appointment._id,
+      ...(doctorId && { doctorId }),
+      ...(clinicId && { vendorId: clinicId }),
+      // Use doctor's clinicId in booked slot too
+      ...(hasDoctorClinic && doctorClinicId && { vendorId: doctorClinicId }),
+      ...(couponId && { couponId }),
+    };
+
+    await BookedSlot.create(slotData);
+
+    // ✅ Wallet - only create entry for paid appointments (not free ones)
+    if (!isFreeConsultation && finalPrice !== "0" && finalPrice !== 0) {
+      const walletData = {
+        credit: finalPrice,
+        userId: req.user._id,
+        transactionType: "appointment_payment",
+        status: "completed",
+        appointmentId: appointment._id,
+        ...(doctorId && { doctorId }),
+        // Use doctor's clinicId for wallet if available
+        ...((hasDoctorClinic && doctorClinicId) && { vendorId: doctorClinicId }),
+        ...((clinicId && !hasDoctorClinic) && { vendorId: clinicId }),
+        createdAt: new Date()
+      };
+      await Wallet.create(walletData);
+    }
+
+    // ✅ Return response with all details
+    const responseMessage = isFreeConsultation ? 
+      "Appointment created successfully using membership (Free)" : 
+      `Appointment created successfully (Paid: ₹${finalPrice})`;
+
+    return res.send({
+      success: 1,
+      message: responseMessage,
+      appointment,
+      isFreeConsultation,
+      pricePaid: finalPrice,
+      status: finalStatus,
+      doctorClinicId: doctorClinicId || null,
+      requestClinicId: clinicId || null,
+      paymentStatus: forcePaidAppointment ? "completed" : paymentStatus
+    });
+
+  } catch (error) {
+    console.error("❌ Error in appointmentReact:", error);
+    return res.send({
+      success: 0,
+      message: error.message,
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+// Get Order History (Only Valid Orders with Patient Details + Prescription Data)
+// Method: GET
+// Endpoint: /user-appointment/order-history
+
+const getOrderHistory = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status } = req.query;
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // ✅ 1. Match Logic
+    const matchQuery = {
+      userId: req.user._id,
+      patientId: { $exists: true, $ne: null },
+      serviceType: { $ne: "Lab Test" }
+    };
+
+    // Status filter (Pending, Completed, Cancelled, etc.)
+    if (status && status !== 'all') {
+      matchQuery.status = status;
+    }
+
+    const pipeline = [
+      // ✅ 2. Match Phase
+      { $match: matchQuery },
+
+      // ✅ 3. Sort by Latest Created Date
+      { $sort: { createdAt: -1 } },
+
+      // ✅ 4. Join Doctor Details
+      {
+        $lookup: {
+          from: "doctors",
+          localField: "doctorId",
+          foreignField: "_id",
+          as: "doctorDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$doctorDetails",
+          preserveNullAndEmptyArrays: true, 
+        },
+      },
+
+      // ✅ 5. Join Clinic/Vendor Details
+      {
+        $lookup: {
+          from: "vendors",
+          localField: "vendorId",
+          foreignField: "_id",
+          as: "clinicDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$clinicDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // ✅ 6. Join Patient Details
+      {
+        $lookup: {
+          from: "patients",
+          localField: "patientId",
+          foreignField: "_id",
+          as: "patientDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$patientDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // ✅ 7. [NEW] Join Doctor Prescription (Generated PDF)
+      // Checks the 'doctorprescriptions' collection for a record matching this AppointmentId
+      {
+        $lookup: {
+          from: "doctorprescriptions", // Ensure this matches your actual MongoDB collection name (usually lowercase plural)
+          localField: "_id",
+          foreignField: "AppointmentId",
+          as: "prescriptionData"
+        }
+      },
+      {
+        $unwind: {
+          path: "$prescriptionData",
+          preserveNullAndEmptyArrays: true // Keep appointment even if no prescription exists yet
+        }
+      },
+
+      // ✅ 8. Pagination
+      { $skip: skip },
+      { $limit: limitNumber },
+
+      // ✅ 9. Project Data
+      {
+        $project: {
+          orderId: "$_id",
+          bookingDate: "$date",
+          timeSlot: "$timeSlot",
+          serviceType: "$serviceType",
+          
+          // Financials
+          amount: {
+            $cond: {
+              if: { $and: [
+                { $eq: ["$isFreeConsultation", true] },
+                { $eq: ["$price", "0"] }
+              ]},
+              then: "$originalPrice",
+              else: "$price"
+            }
+          },
+          originalPrice: "$originalPrice",
+          finalAmount: "$finalAmount",
+          discountAmount: "$discountAmount",
+          
+          // Statuses
+          paymentStatus: { $ifNull: ["$paymentStatus", "pending"] },
+          isPaid: { $ifNull: ["$isPaid", false] },
+          orderStatus: "$status",
+          clinicStatus: "$clinicStatus",
+          createdAt: "$createdAt",
+          
+          // Clinic Info
+          clinicId: { $ifNull: ["$clinicId", "$vendorId"] },
+          clinicName: { $ifNull: ["$clinicDetails.clinicName", "$doctorDetails.clinicName"] },
+          clinicAddress: { $ifNull: ["$clinicDetails.address", "$doctorDetails.clinicAddress"] },
+          clinicImage: "$clinicDetails.image",
+
+          // Doctor Info
+          doctorName: "$doctorDetails.name",
+          doctorImage: "$doctorDetails.image",
+          specialization: "$doctorDetails.specialist",
+
+          // Patient Info
+          patientName: "$patientDetails.name",
+          patientAge: "$patientDetails.dob",
+          patientGender: "$patientDetails.gender",
+          patientPhone: "$patientDetails.phone",
+          problemDescription: "$problemDescription",
+         
+          // 🚨 PRESCRIPTION DETAILS 🚨
+          
+          // 1. User Uploaded Files (if user uploaded an image during booking)
+          // Adjust "$image" if your schema uses a different name like "documents" or "prescriptionImage"
+          userUploadedPrescription: "$image", 
+
+          // 2. Doctor Generated PDF (from createDoctorPrescription API)
+          doctorPrescriptionPdf: "$prescriptionData.pdfUrl",
+          doctorPrescriptionId: "$prescriptionData._id",
+
+          // Membership & Coupon
+          isFreeConsultation: "$isFreeConsultation",
+          membershipConsultationUsed: "$membershipConsultationUsed",
+          userMembershipId: "$userMembershipId",
+          couponId: "$couponId",
+          couponCode: "$couponCode",
+        },
+      },
+    ];
+
+    // ✅ Execute aggregation
+    const orders = await Appointment.aggregate(pipeline);
+
+    // ✅ Total Count
+    const totalOrders = await Appointment.countDocuments(matchQuery);
+
+    return res.send({
+      success: 1,
+      message: "Order history fetched successfully",
+      totalOrders,
+      totalPages: Math.ceil(totalOrders / limitNumber),
+      currentPage: pageNumber,
+      data: orders,
+    });
+  } catch (error) {
+    console.error("Error in getOrderHistory:", error);
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+ 
 
 
-
-
-module.exports = { appointment,getAllUserAppointments };
+module.exports = { appointment,getAllUserAppointments,appointmentReact, getOrderHistory };

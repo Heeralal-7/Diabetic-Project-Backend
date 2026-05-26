@@ -7,7 +7,7 @@ const APP_ID = process.env.AGORA_APP_ID;
 const path = require('path');
 const { GoogleAuth } = require('google-auth-library');
 const axios = require('axios');
-const FCM_URL = 'https://fcm.googleapis.com/v1/projects/genericdavawala-b5d62/messages:send';
+const FCM_URL = 'https://fcm.googleapis.com/v1/projects/dibeteswala/messages:send';
 
 const APP_CERTIFICATE = process.env.AGORA_CERTIFICATE;
 // const sendChatMessageNotification = require("../app/Docter/firebase")

@@ -1,8 +1,9 @@
 const Document = require("../../../modal/Document");
 const Clinic = require("../../../modal/clinic");
-// doctor-document/update
 
 // Clinic-Documnet/update
+// method POST
+
 const mydocuments = async (req, res) => {
   try {
     const ClinicId = req.user._id;

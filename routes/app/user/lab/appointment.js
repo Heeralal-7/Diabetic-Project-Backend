@@ -4,6 +4,7 @@ const {
   bookUserAppointment,
   bookUserAppointmentPackage,
   userorderHistory,
+  getOrderDetails,
   getAllActiveOrderss,
 } = require("../../../../controllers/app/user/labs/appointment");
 const multer = require("multer");
@@ -40,5 +41,6 @@ route.post(
 );
 
 route.get("/userorderHistory",middlewere,userorderHistory)
+route.get("/getOrderDetails/:orderId",middlewere,getOrderDetails)
 route.get("/getAllActiveOrderss",middlewere,getAllActiveOrderss)
 module.exports = route;

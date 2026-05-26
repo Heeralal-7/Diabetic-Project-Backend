@@ -6,7 +6,7 @@ const { listKitchen, categoryKitchen, particularfood, searchfood, foodMenu } = r
 
 const route = Router()
 
-route.get('/kitchen' , middlewere , listKitchen)
+route.post('/kitchen' , middlewere , listKitchen)
 route.get('/catekitchen' , middlewere , categoryKitchen)
 route.get('/particular/:id' , middlewere , particularfood)
 route.get('/search' , middlewere , searchfood)

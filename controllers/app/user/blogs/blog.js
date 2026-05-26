@@ -20,9 +20,9 @@ const getMoreDetailsOfPost = async (postId, userId) => {
 //Endpoint:/blogs
 const getblog = async (req, res) => {
   try {
-    const { id, page = 1, limit = 5 } = req.query;
+    const { id, page = 1, limit = 5 } = req.query; // id params not in use 
+        if (id) {
 
-    if (id) {
       const blogpost = await MainForm.findByIdAndUpdate(
         id,
         { $inc: { viewCount: 1 } },

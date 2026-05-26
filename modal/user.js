@@ -17,6 +17,18 @@ const User = Schema(
       type: String,
       default: "",
     },
+    country: {
+      type: String,
+      default: "",
+    },
+    state: {
+      type: String,
+      default: "",
+    },
+    city: {
+      type: String,
+      default: "",
+    },
     gender: {
       type: String,
       default: "",

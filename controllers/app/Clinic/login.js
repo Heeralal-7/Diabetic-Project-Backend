@@ -10,6 +10,7 @@ const Wallet = require("../../../modal/wallet");
 const Doctor = require("../../../modal/docter");
 const mongoose = require("mongoose"); // at the top
 const path = require('path');
+const Specialists = require("../../../modal/Specialists");
 const genrateToken = (id) => {
   return jwt.sign({ id }, process.env.SECRETKEY);
 };
@@ -419,6 +420,7 @@ const getClinic = async (req, res) => {
       (acc, total) => acc + parseFloat(total.amount),
       0
     );
+    console.log("amt--->", totalAmount);
 
     const percentage = await getProfilePercentage(data._doc);
 
@@ -934,6 +936,93 @@ const deleteAchievementImages = async (req, res) => {
       });
     }
   };
+  // Get all specialists (for clinic to add to their services)
+const getAllSpecialists = async (req, res) => {
+  try {
+    // If you have a Specialist model
+    const specialists = await Specialists.find({})
+      .select('_id specialists createdAt updatedAt')
+      .sort({ name: 1 });
+
+    return res.send({
+      success: 1,
+      message: "Specialists fetched successfully",
+      data: specialists,
+      count: specialists.length
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+// Clinic/change-password
+const changeClinicPassword = async (req, res) => {
+  try {
+    const clinicId = req.user._id; // Token se clinic ID
+    const { currentPassword, newPassword } = req.body;
+
+    // Validation
+    if (!currentPassword || !newPassword) {
+      return res.send({ 
+        success: 0, 
+        message: "Current password and new password are required" 
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.send({ 
+        success: 0, 
+        message: "New password must be at least 6 characters long" 
+      });
+    }
+
+    // Find clinic
+    const clinic = await Clinic.findById(clinicId);
+    if (!clinic) {
+      return res.send({ success: 0, message: "Clinic not found" });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, clinic.password);
+    if (!isCurrentPasswordValid) {
+      return res.send({ 
+        success: 0, 
+        message: "Current password is incorrect" 
+      });
+    }
+
+    // Check if new password is same as current password
+    const isSamePassword = await bcrypt.compare(newPassword, clinic.password);
+    if (isSamePassword) {
+      return res.send({ 
+        success: 0, 
+        message: "New password cannot be same as current password" 
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    clinic.password = hashedPassword;
+    await clinic.save();
+
+    return res.send({
+      success: 1,
+      message: "Password changed successfully"
+    });
+
+  } catch (error) {
+    console.error("Change password error:", error);
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
 
 //      Clinic/updateClinicTimings
   const updateClinicTimings = async (req, res) => {
@@ -1001,7 +1090,9 @@ module.exports = {
   service,
   getClinicSpecialists,
   removeSpecialistFromClinic,
-  updateClinicTimings
+  updateClinicTimings,
+  getAllSpecialists,
+  changeClinicPassword,
 };
 
 // posterimage

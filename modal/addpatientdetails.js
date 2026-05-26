@@ -1,5 +1,5 @@
 const { Schema, model } = require("mongoose");
-
+ 
 const patientSchema = Schema(
   {
     name: {
@@ -49,5 +49,7 @@ const patientSchema = Schema(
   },
   { timestamps: true }
 );
-
+ 
 module.exports = new model("Patient", patientSchema);
+ 
+ 

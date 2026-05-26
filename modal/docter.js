@@ -152,6 +152,11 @@ const doctorSchema = new Schema(
       ref: "Clinic",
       default: null,
     },
+    patientId: {
+      type: Schema.Types.ObjectId,
+      ref: "Patient",
+      default: null,
+    },
     longitude:{
         type:String,
         default:""
@@ -179,6 +184,16 @@ const doctorSchema = new Schema(
     },
   },
 },
+
+  bankDetails: {
+    accountHolderName: { type: String, default: "" },
+    accountNumber: { type: String, default: "" },
+    ifscCode: { type: String, default: "" },
+    bankName: { type: String, default: "" },
+        upiId: { type: String, default: '' } // Optional
+
+},
+
 
   },
   { timestamps: true }

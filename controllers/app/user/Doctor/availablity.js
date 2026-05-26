@@ -4,7 +4,7 @@ const moment = require("moment");
 
 // Get Available slot of the doctor
 // Method:Post
-// EndPoint:/user-doctor-getAvailabilty
+// EndPoint:/user-doctor-availablity
 
 
 const getAvailabiltyOfVendorAndTimeInUser = async (req, res) => {

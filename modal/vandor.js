@@ -113,6 +113,8 @@ const VendorSchema = new Schema(
       ref: "Available",
       default: null,
     },
+
+    
     isActive: {
       type: Boolean,
       default: true,
@@ -125,6 +127,17 @@ const VendorSchema = new Schema(
       type: String,
       default: "",
     },
+
+    bankDetails: {
+    accountHolderName: { type: String, default: '' },
+    accountNumber: { type: String, default: '' },
+    ifscCode: { type: String, default: '' },
+    bankName: { type: String, default: '' },
+    upiId: { type: String, default: '' }
+  },
+
+
+  
       location: {
   type: {
     type: String,

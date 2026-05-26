@@ -7,6 +7,7 @@ const {
   postPonedAppointment,
   paymentDone,
   getpayment,
+  deleteAppointment,
   
 } = require("../../../controllers/app/Docter/appointments");
 
@@ -18,4 +19,6 @@ router.post("/prescribe", doctorMiddleware, addPrescribe);
 router.post("/postponed", doctorMiddleware, postPonedAppointment);
 router.get("/getpayment",getpayment)
 router.post("/paymentDone",paymentDone)
+router.delete("/delete",doctorMiddleware,deleteAppointment)
+
 module.exports = router;

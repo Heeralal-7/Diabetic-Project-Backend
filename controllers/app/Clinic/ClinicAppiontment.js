@@ -26,7 +26,7 @@ const getAllClinicAppointments = async (req, res) => {
       {
         $match: {
           clinicId,
-          clinicStatus: { $in: ["1", "2"] }, // ✅ clinic active or pending
+          // clinicStatus: { $in: ["1", "2"] }, // ✅ clinic active or pending
           status: { $nin: [2, 3, 6] }, // ✅ exclude specific statuses
           PostponeStaus: { $ne: "1" }, // ✅ exclude postponed appointments
           ...(type && { type }), // optional filter
@@ -415,8 +415,8 @@ const getClinicRating = async (req, res) => {
       .sort({ rating: -1 });
 
     if (!ratings || ratings.length === 0) {
-      return res.status(404).json({
-        success: 0,
+      return res.status(201).json({
+        success: 1,
         message: "No ratings found for this clinic",
       });
     }

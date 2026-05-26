@@ -4,7 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const router = express.Router();
  
-const { uploadProductExcel, getAllProductData,deleteProduct,deleteMultipleProducts } = require("../../../../controllers/admin/Vendor/Pharmacy/Products");
+const { uploadProductExcel, getAllProductData,updateProduct,deleteProduct,deleteMultipleProducts, updateProductStatus } = require("../../../../controllers/admin/Vendor/Pharmacy/Products");
  
 // 📁 Upload directory setup
 const uploadDir = path.join(__dirname, "../../../../uploads/admin/vendor/products");
@@ -42,6 +42,13 @@ router.post("/upload-product-excel", upload.single("file"), uploadProductExcel);
  
 // 📥 Get all product data
 router.get("/get-all-product", getAllProductData);
+router.put("/update-product-status", updateProductStatus);
+// --- NEW ---
+// Admin: Update a single product by ID
+// Method: PUT
+// Endpoint: /upload-excel-hospital/update-product/:id
+router.put("/update-product/:id", updateProduct);
+
 // --- NEW ---
 // Admin: Delete a single product
 // Method: DELETE

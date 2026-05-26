@@ -1,5 +1,7 @@
 const Privacypolicy = require("../../../modal/privacypolicy");
 
+// Endpoint: /doctor-privacy/create
+// Method: POST
 const privacy = async (req, res) => {
   try {
     const { privacyPolicy } = req.body;
@@ -18,6 +20,7 @@ const privacy = async (req, res) => {
   }
 };
 
+//Endpoint: /doctor-privacy
 const getPrivacy = async (req, res) => {
   try {
     const data = await Privacypolicy.findOne({});

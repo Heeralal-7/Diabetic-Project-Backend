@@ -390,10 +390,9 @@ const registerDoctor = async (req, res) => {
 
     // 1) Validate required fields
     if (
-      !name || !email || !phoneNumber || !alternatePhoneNumber || !address ||
+      !name || !email || !phoneNumber  || !address ||
       !country || !state || !city || !qualification || !specialist ||
-      !experience || !licenceNumber || !password || !loginType ||
-      !longitude || !latitude
+      !experience || !licenceNumber || !password || !loginType
     ) {
       return res.send({
         success: 0,

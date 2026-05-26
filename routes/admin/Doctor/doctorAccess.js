@@ -1,22 +1,89 @@
 const {Router} = require('express')
- 
-const { getDoctors,getDocumentByDoctorId,verifyDoctorAccount, rejectDoctorAccount,approveDocumentField,rejectDocumentField, createInsurance, Membership, getMembership, calculateDiscountedPrice,getCouponsByDoctorId } = require('../../../controllers/admin/Doctor/doctorAccess')
-const { adminMiddleware } = require('../../../middleware/auth')
-// middlewere
-const { middlewere } = require('../../../middleware/auth')
+const { 
+  getDoctors,
+  getDocumentByDoctorId,
+  verifyDoctorAccount, 
+  rejectDoctorAccount,
+  approveDocumentField,
+  rejectDocumentField, 
+  createInsurance, 
+  Membership, 
+  getMembership, 
+  calculateDiscountedPrice,
+  getCouponsByDoctorId 
+} = require('../../../controllers/admin/Doctor/doctorAccess')
+const { 
+  adminOrSubAdmin,
+  checkPermission,
+  locationFilter 
+, middlewere
+} = require('../../../middleware/auth');
+const locationFilterMiddleware = require('../../../middleware/locationFilter');
 
 const route = Router()
- 
-route.get('/getDoctors', adminMiddleware, getDoctors) // GET all doctors
-route.get("/getDocumentByDoctorId/:id", adminMiddleware, getDocumentByDoctorId);// GET document by doctor ID
-route.patch("/verifyDoctorAccount/:id", adminMiddleware, verifyDoctorAccount); // PATCH verify account
-route.patch("/rejectDoctorAccount/:id", adminMiddleware, rejectDoctorAccount);  // PATCH reject account
-route.patch("/approveDocumentField/:id",adminMiddleware, approveDocumentField);// approve document field
-route.patch("/rejectDocumentField/:id",adminMiddleware, rejectDocumentField);// reject document field
-route.get("/getCouponsByDoctorId", adminMiddleware, getCouponsByDoctorId); // GET coupons by doctor ID
-route.post("/addInsuranceType", adminMiddleware, createInsurance); // POST add insurance type
- route.post("/Membership",adminMiddleware,Membership)
- route.get("/getMembership",middlewere,getMembership);
- route.post("/calculateDiscountedPrice",middlewere,calculateDiscountedPrice)
+
+// ✅ UPDATED ROUTES WITH PERMISSION & LOCATION FILTERING
+
+route.get('/getDoctors', 
+  locationFilterMiddleware,
+  getDoctors
+);
+
+route.get("/getDocumentByDoctorId/:id", 
+  adminOrSubAdmin,
+  checkPermission('doctors', 'view'),
+  getDocumentByDoctorId
+);
+
+route.patch("/verifyDoctorAccount/:id", 
+  adminOrSubAdmin,
+  checkPermission('doctors', 'edit'),
+  verifyDoctorAccount
+);
+
+route.patch("/rejectDoctorAccount/:id", 
+  adminOrSubAdmin,
+  checkPermission('doctors', 'edit'),
+  rejectDoctorAccount
+);
+
+route.patch("/approveDocumentField/:id",
+  adminOrSubAdmin,
+  checkPermission('doctors', 'edit'),
+  approveDocumentField
+);
+
+route.patch("/rejectDocumentField/:id",
+  adminOrSubAdmin,
+  checkPermission('doctors', 'edit'),
+  rejectDocumentField
+);
+
+route.get("/getCouponsByDoctorId", 
+  
+  getCouponsByDoctorId
+);
+
+route.post("/addInsuranceType", 
+  adminOrSubAdmin,
+  checkPermission('doctors', 'create'),
+  createInsurance
+);
+
+route.post("/Membership",
+  adminOrSubAdmin,
+  checkPermission('doctors', 'create'),
+  Membership
+);
+
+route.get("/getMembership",
+  middlewere,
+  getMembership
+);
+
+route.post("/calculateDiscountedPrice",
+  middlewere,
+  calculateDiscountedPrice
+);
+
 module.exports = route
- 

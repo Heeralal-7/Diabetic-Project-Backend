@@ -125,14 +125,14 @@ const clinicschema  = Schema({
         type:String,
         default:""
       },
-      longitude:{
-        type:String,
-        default:""
-      },
-      latitude:{
-        type:String,
-        default:""
-      },
+      // longitude:{
+      //   type:String,
+      //   default:""
+      // },
+      // latitude:{
+      //   type:String,
+      //   default:""
+      // },
      location: {
   type: {
     type: String,
@@ -212,6 +212,14 @@ const clinicschema  = Schema({
       type:String,
       default:""
     },
+    bankDetails: {
+    accountHolderName: { type: String, default: "" },
+    accountNumber: { type: String, default: "" },
+    ifscCode: { type: String, default: "" },
+    bankName: { type: String, default: "" },
+        upiId: { type: String, default: '' } // Optional
+
+},
     
 }, { timestamps: true }
 

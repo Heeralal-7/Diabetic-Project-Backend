@@ -18,6 +18,7 @@ const createDriver = async (req, res) => {
       phoneNumber,
       qualification,
       vehicleNumber,
+      serviceType,
       vehicleType,
       licenceNumber,
       aadharCard,
@@ -36,6 +37,7 @@ const createDriver = async (req, res) => {
       !qualification ||
       !vehicleNumber ||
       !vehicleType ||
+      !serviceType ||
       !licenceNumber ||
       !aadharCard ||
       !address ||
@@ -69,6 +71,7 @@ const createDriver = async (req, res) => {
       qualification,
       vehicleNumber,
       vehicleType,
+      serviceType,
       licenceNumber,
       aadharCard,
       address,

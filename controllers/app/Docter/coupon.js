@@ -154,8 +154,136 @@ const acceptCloseCouponOfDoctor = async (req, res) => {
   }
 };
 
+// Delete Coupon of Doctor
+// Method:delete
+// Endpoints:/doctor-coupon/delete/:id
+const deleteCouponOfDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    
+    const coupon = await Coupon.findOne({ _id: id, doctorId: req.user._id });
+    if (!coupon) {
+      return res.send({
+        success: 0,
+        message: "Coupon not found or not authorized",
+      });
+    }
+
+    
+    await Coupon.findByIdAndDelete(id);
+
+    return res.send({
+      success: 1,
+      message: "Coupon deleted successfully",
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+// Edit Coupon of Doctor
+// Method:put
+// Endpoint:/doctor-coupon/edit/:id
+const editCouponOfDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // coupon exist करता है या नहीं + उसी doctor का है या नहीं check करो
+    const coupon = await Coupon.findOne({ _id: id, doctorId: req.user._id });
+    if (!coupon) {
+      return res.send({
+        success: 0,
+        message: "Coupon not found or not authorized",
+      });
+    }
+
+    // जिन fields को update करना है वो body से लो
+    const {
+      couponCode,
+      description,
+      percentageDiscount,
+      fixedAmountDiscount,
+      couponApplied,
+      limitRedeem,
+      startDate,
+      expireDate,
+    } = req.body;
+
+    // update करो
+    const updatedCoupon = await Coupon.findByIdAndUpdate(
+      id,
+      {
+        couponCode,
+        description,
+        percentageDiscount,
+        fixedAmountDiscount,
+        couponApplied,
+        limitRedeem,
+        startDate,
+        expireDate,
+      },
+      { new: true } // return updated document
+    );
+
+    return res.send({
+      success: 1,
+      message: "Coupon updated successfully",
+      details: updatedCoupon,
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
+// Expire Coupon of Doctor (Force expire)
+// Method:put
+// Endpoint:/doctor-coupon/expire/:id
+const expireCouponOfDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // पहले check करें कि coupon exist करता है और उसी doctor का है
+    const coupon = await Coupon.findOne({ _id: id, doctorId: req.user._id });
+    if (!coupon) {
+      return res.send({
+        success: 0,
+        message: "Coupon not found or not authorized",
+      });
+    }
+
+    // status को 2 कर दो (Expired)
+    const updatedCoupon = await Coupon.findByIdAndUpdate(
+      id,
+      { status: "2" },
+      { new: true }
+    );
+
+    return res.send({
+      success: 1,
+      message: "Coupon expired successfully",
+      details: updatedCoupon,
+    });
+  } catch (error) {
+    return res.send({
+      success: 0,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   createCouponOfDoctor,
   getCouponOfDoctor,
   acceptCloseCouponOfDoctor,
+  deleteCouponOfDoctor,
+  editCouponOfDoctor,
+  expireCouponOfDoctor,
+  editCouponOfDoctor,
 };
