@@ -5,15 +5,15 @@ const { getParticularFood, filter, addToCart, getCartItem, checkData, removeCart
 
 const route = Router()
 
-route.get('/foodName', middlewere , getParticularFood)
-route.get('/sort', middlewere ,filter )
+route.get('/foodName',  getParticularFood)
+route.get('/sort', filter )
 route.post('/cartfood/:id',middlewere,addToCart)
-route.get('/foodItem' , middlewere , getCartItem)
-route.get('/check' , middlewere , checkData)
-route.patch('/remove' , middlewere , removeCart)
-route.get('/getcart', middlewere, getCartData)
-route.post('/addExtraItems/:foodItemId' ,middlewere,addExtraItems);
-route.get("/getMeal",middlewere,getMeal);
-route.put("/updateQuantity", middlewere, updateQuantity);//for only website
+route.get('/foodItem' ,  getCartItem)
+route.get('/check' ,  checkData)
+route.patch('/remove' ,  removeCart)
+route.get('/getcart',  getCartData)
+route.post('/addExtraItems/:foodItemId' ,addExtraItems);
+route.get("/getMeal",getMeal);
+route.put("/updateQuantity",  updateQuantity);//for only website
 
 module.exports = route

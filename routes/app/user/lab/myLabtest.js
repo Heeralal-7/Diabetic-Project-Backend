@@ -4,7 +4,7 @@ const { current, history } = require('../../../../controllers/app/user/labs/myLa
 
 const route = Router()
 
-route.get("/data" , middlewere , current)
-route.get("/history" , middlewere , history)
+route.get("/data" , current)
+route.get("/history" , history)
 
 module.exports = route

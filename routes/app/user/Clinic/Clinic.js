@@ -5,7 +5,7 @@ const router = Router();
 
 router.post("/getAllClinic",getAllClinic)
 router.get("/getClinic",getClinic)
-router.get("/getDoctor",middlewere,getDoctor)
+router.get("/getDoctor",getDoctor)
 router.get("/getuserclinic",getuserclinic)
 
 module.exports = router ;

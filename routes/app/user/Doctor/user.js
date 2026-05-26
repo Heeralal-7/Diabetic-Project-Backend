@@ -14,5 +14,5 @@ const route = Router();
 
 route.post("/", middlewere, getAllDoctor);
 route.get("/profile", doctorMiddleware, getSingleDoctor);
-route.get("/getDoctor",middlewere,getDoctor)
+route.get("/getDoctor",getDoctor)
 module.exports = route;

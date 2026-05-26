@@ -37,11 +37,11 @@ const upload = multer({
     }
 });
 
-route.post("/get", middlewere, shopsNear);
-route.get('/getProducts', middlewere, getAvailableProducts);
-route.get("/getVendorDetails", middlewere, getVendorsByProduct);
-route.get('/medicine/getMedicines', middlewere, getAvailableMedicines);
-route.get("/medicine/getVendorDetails", middlewere, getVendorsByMedicine);
+route.post("/get",  shopsNear);
+route.get('/getProducts',  getAvailableProducts);
+route.get("/getVendorDetails",  getVendorsByProduct);
+route.get('/medicine/getMedicines',  getAvailableMedicines);
+route.get("/medicine/getVendorDetails",  getVendorsByMedicine);
 
 route.post("/checkCartVendor", middlewere, checkCartVendorConflict);
 route.post("/addToCart", middlewere, addToCart);
@@ -57,8 +57,8 @@ route.post("/uploadPrescription", middlewere, upload.single('image'), uploadPres
 
 route.post("/getCart", middlewere, getCartByUser);
 route.get("/getVendorAvailability", middlewere, getVendoravailability);
-route.get("/order-history", middlewere, getOrderHistory);
-route.get("/track-order", middlewere, trackOrder);
+route.get("/order-history", getOrderHistory);
+route.get("/track-order",  trackOrder);
 
 route.get("/vendor/products", middlewere, getVendorProducts);
 route.get("/vendor/medicines", middlewere, getVendorMedicines);
@@ -66,5 +66,7 @@ route.get("/vendor/medicines", middlewere, getVendorMedicines);
 route.get("/popularProducts", middlewere, getPopularProducts);
 route.get("/medicine/popularMedicines", middlewere, getPopularMedicines);
 route.delete("/clearCart", middlewere, clearCart);
+
+// esme saro me middleware add hoga
 
 module.exports = route;

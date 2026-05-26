@@ -19,17 +19,17 @@ const {
 
 const route = Router();
 
-route.post("/near", middlewere, getVendor);
+route.post("/near",  getVendor);
 
-route.get("/available/:id", middlewere, getVendoravailability);
-route.get("/test/:id", middlewere, getVendorTest);
-route.get("/startdate/:id", middlewere, getAllStartAndEndDateUser);
-route.post("/time/:id", middlewere , getAvailabiltyOfUserVendorAndTime)
-route.get("/date/:id", middlewere, getVendorDate)
-route.get("/particular/:id", middlewere , getParticularVendor)
-route.get("/package/:id", middlewere , getpackages)
-route.get("/package" ,middlewere , getallpacakge)
-route.get("/parttest" , middlewere , getparticulatlabtest)
-route.get("/getcollectionPackage", middlewere,getPackagecollection );
+route.get("/available/:id",  getVendoravailability);
+route.get("/test/:id",  getVendorTest);
+route.get("/startdate/:id",  getAllStartAndEndDateUser);
+route.post("/time/:id",  getAvailabiltyOfUserVendorAndTime)
+route.get("/date/:id",  getVendorDate)
+route.get("/particular/:id",  getParticularVendor)
+route.get("/package/:id",  getpackages)
+route.get("/package" , getallpacakge)
+route.get("/parttest" ,  getparticulatlabtest)
+route.get("/getcollectionPackage", getPackagecollection );
 route.get("/getAllOrgans",getAllOrgans );
 module.exports = route;
