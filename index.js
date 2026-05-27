@@ -5,7 +5,9 @@ require("dotenv").config();
 const cors = require("cors");
 const { db } = require("./db/dataBase");
 const bodyParser = require("body-parser");
+const morgan = require("morgan");
 
+app.use(morgan("dev"));
 const app = express();
 const port = process.env.PORT || 8081;
 // const totalCpus = os.cpus().length
