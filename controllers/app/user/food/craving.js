@@ -102,6 +102,14 @@ const addToCart = async (req, res) => {
     const { id } = req.params;
     const { quantity, vendorId, request } = req.body;
 
+
+    if (!req.user || !req.user._id) {
+      return res.send({
+        success: 0,
+        message: "User authentication failed. Please login again."
+      });
+    }
+
     const qty = parseInt(quantity);
     if (isNaN(qty)) {
       return res.send({ success: 0, message: "Invalid quantity value." });
@@ -115,7 +123,6 @@ const addToCart = async (req, res) => {
     let cartItem = await Cart.findOne({ FoodItem: id, userId: req.user._id });
     const currentQty = cartItem ? cartItem.quantity : 0;
 
-    // ✅ Do nothing if quantity = 0
     if (qty === 0) {
       return res.send({
         success: 1,
@@ -124,13 +131,12 @@ const addToCart = async (req, res) => {
       });
     }
 
-    // ✅ Handle negative quantity
     if (qty < 0) {
       if (!cartItem) {
         return res.send({ success: 0, message: "No existing cart item to reduce." });
       }
 
-      const newQty = currentQty + qty; // since qty is negative
+      const newQty = currentQty + qty;
       if (newQty <= 0) {
         cartItem.quantity = 0;
         cartItem.cartStatus = 0;
@@ -155,7 +161,6 @@ const addToCart = async (req, res) => {
       return res.send({ success: 1, message: "Cart quantity reduced.", data: cartItem });
     }
 
-    // ✅ Handle positive quantity
     const updatedQty = currentQty + qty;
     const basePrice = Number(foodItem.amount);
 
@@ -265,13 +270,21 @@ const addExtraItems = async (req, res) => {
 
 const getCartData = async (req, res) => {
   try {
+
+    if (!req.user || !req.user._id) {
+      return res.send({
+        success: 0,
+        message: "User authentication failed. Please login again."
+      });
+    }
+
     // Populate FoodItem + vendorId (name + latitude + longitude + location)
     const data = await Cart.find({ userId: req.user._id })
       .populate({
         path: "FoodItem",
         populate: {
           path: "vendorId",
-          select: "name latitude longitude location" // ADD MORE FIELDS HERE
+          select: "name latitude longitude location"
         }
       });
 
@@ -306,10 +319,8 @@ const getCartData = async (req, res) => {
 
       totalAddonsPrice += extraItemsPrice * quantity;
 
-      // Convert item to plain object for modification
       const itemObject = item.toObject();
 
-      // Add vendor info (name + lat + long + coordinates)
       if (
         itemObject.FoodItem &&
         itemObject.FoodItem.vendorId &&
@@ -323,7 +334,6 @@ const getCartData = async (req, res) => {
         itemObject.FoodItem.vendorCoordinates =
           vendor.location?.coordinates || [];
 
-        // Replace vendorId object with only _id
         itemObject.FoodItem.vendorId = vendor._id;
       }
 
