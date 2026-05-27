@@ -11,7 +11,8 @@ const morgan = require("morgan");
 const app = express();
 const port = process.env.PORT || 8081;
 // const totalCpus = os.cpus().length
-app.use(morgan("dev"));  //api hit counter
+
+app.use(morgan(":method :url :status :response-time ms - :remote-addr"));
 
 const dns = require('node:dns/promises');
 dns.setServers(["1.1.1.1", "8.8.8.8"]); // Forces Node to bypass the Windows DNS bug
