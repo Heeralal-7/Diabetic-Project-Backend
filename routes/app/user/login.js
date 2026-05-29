@@ -8,6 +8,7 @@ const {
   getProfile,
   getProfilePercentage,
   verfiy,
+  registerUser,
 } = require("../../../controllers/app/user/login");
 const { middlewere } = require("../../../middleware/auth");
 const { getPrivacyPolicy } = require("../../../controllers/app/user/privacypolicy");
@@ -35,7 +36,7 @@ const router = Router();
 router.post("/login", userRegisterAndLogin);
 router.post("/verify", verifyUser);
 router.get("/get", middlewere, getProfile);
-router.patch(
+router.put(
   "/update-user",
   upload.fields([
     { name: "avatar", maxCount: 1 },
@@ -54,4 +55,6 @@ router.patch(
 router.get("/", middlewere, getProfilePercentage);
 router.get("/",getPrivacyPolicy)
 router.post("/partner", middlewere,verfiy)
+router.post("/signup",registerUser) 
+
 module.exports = router;

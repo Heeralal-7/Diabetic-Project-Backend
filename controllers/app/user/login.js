@@ -343,22 +343,21 @@ const verfiy = async (req, res) => {
   try {
     const { partnerCode } = req.body;
 
-
     const user = await User.aggregate([{
-      $match :{referralCode: partnerCode}
-    }])
- 
-    if (user.lenght === 0) {
+      $match: { referralCode: partnerCode }
+    }]);
+
+    // Fix: length ki spelling theek karein
+    if (user.length === 0) { 
       return res.send({
         success: 0,
         message: "Please enter a correct code"
       });
     }
 
-    await User.findByIdAndUpdate(req.user._id,{
+    await User.findByIdAndUpdate(req.user._id, {
       partnerCode
-    },{new:true})
-
+    }, { new: true });
 
     return res.send({
       success: 1,
@@ -373,7 +372,50 @@ const verfiy = async (req, res) => {
   }
 };
 
+// 2. New Signup Route Logic
+// registerUser Controller
+// Method: POST | EndPoint: /user/register
+const registerUser = async (req, res) => {
+  try {
+    const { name, number, email, birthyear, gender, ctrCode } = req.body;
 
+    // 1. Check karein ki ye number pehle se registered toh nahi
+    const userExist = await User.findOne({ number, ctrCode: ctrCode || "+91" });
+    if (userExist) {
+      return res.send({
+        success: 0,
+        message: "This number is already registered. Please Login."
+      });
+    }
+
+    // 2. Naya User Create karein
+    const newUser = await User.create({
+      name,
+      number,
+      email: email || "",
+      birthyear,
+      dob: birthyear,
+      gender,
+      ctrCode: ctrCode || "+91",
+      referralCode: generateReferralCode() // Aapka referral logic
+    });
+
+    // 3. Token Generate karein (Login karwane ke liye)
+    const token = generateToken(newUser._id); // Aapka JWT function
+    newUser.token = token;
+    await newUser.save();
+
+    // 4. Token aur Success response bhejien
+    return res.send({
+      success: 1,
+      message: "Registration Successful",
+      token: token, // Ye token frontend login ke liye zaroori hai
+      details: newUser
+    });
+  } catch (error) {
+    return res.send({ success: 0, message: error.message });
+  }
+};
 
 module.exports = {
   userRegisterAndLogin,
@@ -382,5 +424,6 @@ module.exports = {
   updatUserImage,
   getProfile,
   getProfilePercentage,
-  verfiy
+  verfiy,
+  registerUser
 };
