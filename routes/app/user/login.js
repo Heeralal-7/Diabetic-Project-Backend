@@ -9,6 +9,7 @@ const {
   getProfilePercentage,
   verfiy,
   registerUser,
+  checkUserExistence,
 } = require("../../../controllers/app/user/login");
 const { middlewere } = require("../../../middleware/auth");
 const { getPrivacyPolicy } = require("../../../controllers/app/user/privacypolicy");
@@ -56,5 +57,6 @@ router.get("/", middlewere, getProfilePercentage);
 router.get("/",getPrivacyPolicy)
 router.post("/partner", middlewere,verfiy)
 router.post("/signup",registerUser) 
+router.post("/check-existence", checkUserExistence);
 
 module.exports = router;

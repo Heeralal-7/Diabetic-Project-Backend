@@ -418,6 +418,33 @@ const registerUser = async (req, res) => {
   }
 };
 
+// Check User Existence
+// Method: Post | EndPoint: "/check-existence"
+const checkUserExistence = async (req, res) => {
+  try {
+    const { number, ctrCode } = req.body;
+    
+    // Database mein number check karein
+    const user = await User.findOne({ number, ctrCode: ctrCode || "+91" });
+
+    if (user) {
+      return res.send({
+        success: 1,
+        exists: true, // Purana user hai (Login mode)
+        message: "User exists",
+      });
+    } else {
+      return res.send({
+        success: 1,
+        exists: false, // Naya user hai (Signup mode)
+        message: "User does not exist",
+      });
+    }
+  } catch (error) {
+    return res.send({ success: 0, message: error.message });
+  }
+};
+
 module.exports = {
   userRegisterAndLogin,
   verifyUser,
@@ -426,5 +453,6 @@ module.exports = {
   getProfile,
   getProfilePercentage,
   verfiy,
-  registerUser
+  registerUser,
+  checkUserExistence
 };
