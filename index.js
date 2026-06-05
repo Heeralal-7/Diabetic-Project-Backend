@@ -7,15 +7,42 @@ const { db } = require("./db/dataBase");
 const bodyParser = require("body-parser");
 const morgan = require("morgan");
 
+const requestIp = require("request-ip");
+
 
 const app = express();
 const port = process.env.PORT || 8081;
-// const totalCpus = os.cpus().length
-// app.use(morgan("dev"));  //api hit counter
-app.use(morgan(":method :url :status :response-time ms - :remote-addr"));
+
 
 const dns = require('node:dns/promises');
 dns.setServers(["1.1.1.1", "8.8.8.8"]); // Forces Node to bypass the Windows DNS bug
+
+// IP address nikalne ke liye middleware
+app.use(requestIp.mw());
+
+// 1. Custom Token: Date aur Time (Indian Format)
+morgan.token("date", () => {
+  return new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true // AM/PM ke liye
+  });
+});
+
+// 2. Custom Token: Client IP
+morgan.token("client-ip", (req) => {
+  return req.clientIp || req.ip;
+});
+
+// Morgan Format: [Date & Time] Method URL Status ResponseTime - IP
+const logFormat = "[:date] :method :url :status :response-time ms - :client-ip";
+
+app.use(morgan(logFormat));
 
 
 // if(cluster.isPrimary){
