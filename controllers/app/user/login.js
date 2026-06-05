@@ -91,6 +91,7 @@ const userRegisterAndLogin = async (req, res) => {
     return res.send({
       success: 0,
       message: error.message,
+      
     });
   }
 };
